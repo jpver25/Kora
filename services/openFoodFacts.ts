@@ -1,10 +1,11 @@
-import type { Product, ProductAdditive, ProductNutriments } from '@/types/product';
+import type { Product, ProductAdditive } from '@/types/product';
 import { computeKoraScore } from '@/services/scoring';
+import { mapNutriments } from '@/services/nutriments';
 
 const OFF_FOOD = 'https://world.openfoodfacts.org/api/v2/product';
 const OFF_BEAUTY = 'https://world.openbeautyfacts.org/api/v2/product';
 
-type OffProduct = {
+export type OffProduct = {
   code?: string;
   product_name?: string;
   product_name_es?: string;
@@ -28,19 +29,7 @@ function mapAdditives(tags: string[] = []): ProductAdditive[] {
   });
 }
 
-function mapNutriments(raw: Record<string, number | undefined> = {}): ProductNutriments {
-  return {
-    energyKcal100g: raw['energy-kcal_100g'] ?? raw.energy_kcal_100g ?? null,
-    fat100g: raw.fat_100g ?? null,
-    saturatedFat100g: raw['saturated-fat_100g'] ?? null,
-    sugars100g: raw.sugars_100g ?? null,
-    salt100g: raw.salt_100g ?? null,
-    proteins100g: raw.proteins_100g ?? null,
-    fiber100g: raw.fiber_100g ?? null,
-  };
-}
-
-function toProduct(barcode: string, raw: OffProduct, source: Product['source']): Product {
+export function toProduct(barcode: string, raw: OffProduct, source: Product['source']): Product {
   const additives = mapAdditives(raw.additives_tags);
   const nutriments = mapNutriments(raw.nutriments);
   const labels = (raw.labels_tags ?? []).map((t) => t.replace(/^en:/, ''));

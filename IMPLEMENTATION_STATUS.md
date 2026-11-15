@@ -1,53 +1,37 @@
 # Implementation status — Kora
 
-Última actualización: 2026-11-15 (Phase 1–3 visual AI)
+Última actualización: 2026-11-15 (Phase 4 consumer + Supabase wiring)
 
 ## Listo
 
 | Ítem | Estado | Notas |
 | --- | --- | --- |
-| Expo Router + TypeScript modular | ✅ | `app/`, `components/`, `services/`, `theme/` |
-| Design system + tipografías | ✅ | Nunito + Fraunces, tokens de marca |
-| Copy ES-CL | ✅ | `constants/strings.es.ts` |
-| Tabs Inicio / Explorar / Escanear / Historial / Perfil | ✅ | Escanear destacado |
-| Splash / onboarding con mascota | ✅ | AsyncStorage |
-| Barcode scanning + OFF/OBF lookup | ✅ | Expo Go |
-| Product result + ScoreRing | ✅ | |
-| Historial local | ✅ | |
-| Scoring Kora | ✅ | |
-| **Visual pipeline Phase 3** | ✅ | Detection → OCR → embedding → search → tiers |
-| Confidence UI (auto / candidates / low) | ✅ | `visual-candidates` screen |
-| pgvector migration + RPC | ✅ | `002_visual_embeddings.sql` |
-| Edge Function `visual-identify` | ✅ | Needs `OPENAI_API_KEY` secret |
-| Reference ingestion hooks | ✅ | App service + Node script |
-| Fixture measurements | ✅ | `fixtures/packaging/MEASURED_RESULTS.json` |
-| Docs | ✅ | + `VISUAL_AI.md` |
+| Phase 1–3 foundation / barcode / visual pipeline | ✅ | PRs #1–#2 |
+| Bugbot fixes (camera focus, nutriments map, SDK 54 pkgs, organic token match, alert lock) | ✅ | en branch Phase 4 |
+| Home dashboard (saludo, CTA, recientes, shortcuts, recomendaciones) | ✅ | |
+| Búsqueda + filtros (nombre/marca/categoría/código, food/beauty, score) | ✅ | `app/buscar.tsx` + OFF/OBF reales |
+| Explorar rankings por categoría | ✅ | catálogo real OFF |
+| Historial (búsqueda, método, favoritos) | ✅ | |
+| Favoritos | ✅ | AsyncStorage |
+| Preferencias dietarias + warnings en ficha | ✅ | |
+| Alternativas más sanas (misma categoría, mejor score) | ✅ | solo hits OFF reales |
+| Docs + `DATABASE_SETUP` para proyecto `ssdnuypwutvdlpfkylva` | ✅ | sin secrets en git |
 
-## Parcial
+## Supabase (este entorno)
 
-| Ítem | Estado | Blocker |
-| --- | --- | --- |
-| Cloud OCR on device | 🟡 wired | OpenAI / Edge secret missing in this environment |
-| CLIP neural embeddings | 🟡 interim hash | Replace Edge embed with CLIP model |
-| Catálogo Kora seeded | 🟡 schema | Supabase project + ingest |
-| On-device ML Kit detection | ⬜ | Needs expo-dev-client / EAS |
+| Check | Estado |
+| --- | --- |
+| `.env` gitignored con URL + anon | ✅ local only |
+| Auth health del proyecto | ✅ vivo |
+| Tablas `products` / embeddings | ⛔ migraciones pendientes (SQL Editor / CLI login) |
+| `supabase db push` desde el agente | ⛔ sin `SUPABASE_ACCESS_TOKEN` / DB password |
 
-## Blockers externos (exactos)
+## Blockers
 
-1. **`EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY`**
-2. **Vision provider:** Supabase secret `OPENAI_API_KEY` for Edge Function, or dev `EXPO_PUBLIC_OPENAI_API_KEY`
-3. **EAS `projectId`** placeholder — only needed for Dev Client / store
-4. **Apple Developer** — TestFlight/store only
-5. **Empty reference image table** until ingest runs against a live Supabase
+1. **Aplicar SQL 001+002** en el dashboard del proyecto (o CLI login).  
+2. Vision OpenAI/Edge secret (opcional para OCR cloud).  
+3. EAS projectId / Apple — solo Dev Client/store.
 
-## Qué funciona en Expo Go (iPhone)
+## Expo Go
 
-- Todo Phase 1/2 (tabs, barcode, ficha, historial)
-- Modo Visual: captura frame, corre pipeline
-- Sin proveedor de visión: mensaje honesto, **cero productos inventados**
-- Con OpenAI/Edge configurado: OCR → búsqueda OFF real → tiers / ficha
-- pgvector: cuando Supabase + migration 002 + referencias existan
-
-## Medición fixtures
-
-`npm run test:visual` → **3/3 pass** (con matices OCR en thumbs 400px; ver `VISUAL_AI.md`)
+Flujo principal intacto: barcode, visual capture, home/search/explore/history/prefs, ficha con alternativas y warnings.

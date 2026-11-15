@@ -34,6 +34,9 @@ export const strings = {
   },
 
   home: {
+    greetingMorning: 'Buenos días',
+    greetingAfternoon: 'Buenas tardes',
+    greetingEvening: 'Buenas noches',
     greeting: 'Hola',
     headline: 'Escanea y elige mejor',
     subhead: 'Apunta la cámara a un alimento o cosmético y Kora te explica qué hay dentro.',
@@ -42,20 +45,39 @@ export const strings = {
     emptyRecent: 'Aún no hay escaneos. Prueba con un producto del súper.',
     tipTitle: 'Tip del día',
     tipBody: 'Prioriza productos con pocos aditivos y mejor Nutri-Score cuando exista.',
+    shortcuts: 'Accesos',
+    search: 'Buscar',
+    favorites: 'Favoritos',
+    preferences: 'Preferencias',
+    recommendations: 'Para ti',
+    recommendationsEmpty: 'Escanea algunos productos para ver recomendaciones basadas en tu historial.',
+    recommendationsHint: 'Mejores puntajes entre tus escaneos recientes.',
+  },
+
+  search: {
+    title: 'Buscar',
+    placeholder: 'Nombre, marca, categoría o código',
+    filters: 'Filtros',
+    kindAll: 'Todos',
+    kindFood: 'Alimentos',
+    kindBeauty: 'Cosméticos',
+    scoreMin: 'Puntaje mín.',
+    scoreMax: 'Puntaje máx.',
+    submit: 'Buscar en catálogos',
+    empty: 'Escribe algo para buscar en Open Food Facts / Beauty Facts.',
+    noResults: 'Sin resultados reales para esa búsqueda.',
+    barcodeHint: 'Si escribes solo dígitos, buscamos por código de barras.',
   },
 
   explore: {
     title: 'Explorar',
-    subtitle: 'Descubre categorías y tipologías que Kora puede evaluar.',
+    subtitle: 'Rankings y categorías con productos reales de catálogo.',
     food: 'Alimentos',
     beauty: 'Cosméticos',
-    coming: 'Catálogo enriquecido con Supabase próximamente.',
-    categories: [
-      { id: 'bebidas', title: 'Bebidas', hint: 'Jugos, leches, bebidas' },
-      { id: 'snacks', title: 'Snacks', hint: 'Galletas, cereales, snacks' },
-      { id: 'lacteos', title: 'Lácteos', hint: 'Yogures, quesos, postres' },
-      { id: 'cuidado', title: 'Cuidado personal', hint: 'Cremas, shampoos, makeup' },
-    ],
+    rankings: 'Mejor puntaje',
+    loading: 'Cargando ranking…',
+    empty: 'No hay productos en esta categoría por ahora.',
+    openCategory: 'Ver ranking',
   },
 
   scan: {
@@ -103,6 +125,8 @@ export const strings = {
     additives: 'Aditivos',
     nutriments: 'Nutrición',
     alternatives: 'Mejores alternativas',
+    alternativesLoading: 'Buscando alternativas reales en el catálogo…',
+    alternativesEmpty: 'No encontramos alternativas con mejor puntaje en la misma categoría.',
     alternativesSoon: 'Sugerencias personalizadas cuando el catálogo esté conectado.',
     notFoundTitle: 'Producto no encontrado',
     notFoundBody: 'No está en Open Food Facts ni en el catálogo Kora todavía.',
@@ -112,6 +136,9 @@ export const strings = {
     brand: 'Marca',
     categories: 'Categorías',
     unknown: 'Sin datos',
+    favoriteAdd: 'Guardar favorito',
+    favoriteRemove: 'Quitar favorito',
+    warningsTitle: 'Preferencias dietarias',
     bands: {
       excellent: 'Excelente',
       good: 'Bueno',
@@ -126,6 +153,29 @@ export const strings = {
     empty: 'Tu historial aparecerá aquí después de escanear.',
     clear: 'Borrar historial',
     cleared: 'Historial borrado',
+    searchPlaceholder: 'Filtrar por nombre, marca o código',
+    filterAll: 'Todos',
+    filterBarcode: 'Código',
+    filterVisual: 'Visual',
+    filterManual: 'Manual',
+    method: 'Método',
+    favoritesOnly: 'Solo favoritos',
+  },
+
+  preferences: {
+    title: 'Preferencias dietarias',
+    subtitle: 'Kora avisará en la ficha del producto si hay conflictos con tus preferencias.',
+    save: 'Guardar',
+    saved: 'Preferencias guardadas',
+    items: {
+      vegetarian: 'Vegetariano',
+      vegan: 'Vegano',
+      gluten_free: 'Sin gluten',
+      lactose_free: 'Sin lactosa',
+      no_palm_oil: 'Sin aceite de palma',
+      low_sugar: 'Bajo en azúcar',
+      prefer_organic: 'Preferir orgánico',
+    },
   },
 
   profile: {
@@ -141,6 +191,13 @@ export const strings = {
     resetOnboarding: 'Volver a ver onboarding',
     supabaseMissing: 'Supabase no configurado',
     supabaseHint: 'Agrega EXPO_PUBLIC_SUPABASE_URL y EXPO_PUBLIC_SUPABASE_ANON_KEY en .env',
+    supabaseLive: 'Supabase conectado',
+    supabaseTablesMissing: 'Proyecto vivo, faltan migraciones SQL',
+    supabaseTablesHint:
+      'Aplica 001_initial_schema.sql y 002_visual_embeddings.sql en el SQL Editor del proyecto.',
+    openPreferences: 'Preferencias dietarias',
+    openFavorites: 'Ver favoritos',
+    openSearch: 'Buscar productos',
   },
 
   common: {

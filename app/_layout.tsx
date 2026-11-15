@@ -52,6 +52,14 @@ export default function RootLayout() {
           name="visual-candidates"
           options={{ headerShown: true, title: 'Candidatos', animation: 'slide_from_bottom' }}
         />
+        <Stack.Screen
+          name="buscar"
+          options={{ headerShown: true, title: 'Buscar', animation: 'slide_from_right' }}
+        />
+        <Stack.Screen
+          name="preferencias"
+          options={{ headerShown: true, title: 'Preferencias', animation: 'slide_from_right' }}
+        />
       </Stack>
     </>
   );

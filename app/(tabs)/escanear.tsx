@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -10,6 +10,7 @@ import {
   Pressable,
 } from 'react-native';
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
+import { useIsFocused } from '@react-navigation/native';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -25,6 +26,7 @@ import type { ScanMode } from '@/types/product';
 import { colors, radii, spacing, typography } from '@/theme';
 
 export default function EscanearScreen() {
+  const isFocused = useIsFocused();
   const [permission, requestPermission] = useCameraPermissions();
   const [mode, setMode] = useState<ScanMode>('auto');
   const [torch, setTorch] = useState(false);
@@ -36,9 +38,30 @@ export default function EscanearScreen() {
   const cameraRef = useRef<CameraView>(null);
   const visionProvider = getActiveVisionProvider();
 
+  useEffect(() => {
+    if (!isFocused) {
+      setTorch(false);
+      setBusy(false);
+      setStatusText(null);
+      // Keep lock briefly after leaving so remount does not instantly re-fire.
+      lockRef.current = true;
+      const t = setTimeout(() => {
+        lockRef.current = false;
+      }, 600);
+      return () => clearTimeout(t);
+    }
+    return undefined;
+  }, [isFocused]);
+
+  const unlockSoon = (ms = 1200) => {
+    setTimeout(() => {
+      lockRef.current = false;
+    }, ms);
+  };
+
   const handleBarcode = useCallback(
     async (payload: BarcodeScanningResult) => {
-      if (mode === 'visual') return;
+      if (!isFocused || mode === 'visual' || manualOpen) return;
       const raw = payload.data?.trim();
       if (!raw || lockRef.current || busy) return;
       lockRef.current = true;
@@ -48,6 +71,8 @@ export default function EscanearScreen() {
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         const product = await lookupProductByBarcode(raw);
         if (!product) {
+          setBusy(false);
+          setStatusText(null);
           Alert.alert(strings.product.notFoundTitle, strings.product.notFoundBody, [
             {
               text: strings.common.ok,
@@ -60,35 +85,41 @@ export default function EscanearScreen() {
         }
         await addHistoryFromProduct(product, 'barcode');
         router.push(`/product/${product.barcode}`);
+        unlockSoon(1800);
       } catch {
-        Alert.alert(strings.common.error, strings.common.tryAgain);
+        Alert.alert(strings.common.error, strings.common.tryAgain, [
+          { text: strings.common.ok, onPress: () => { lockRef.current = false; } },
+        ]);
       } finally {
         setBusy(false);
         setStatusText(null);
-        setTimeout(() => {
-          lockRef.current = false;
-        }, 1500);
       }
     },
-    [busy, mode],
+    [busy, isFocused, manualOpen, mode],
   );
 
   const submitManual = async () => {
     const code = manualCode.replace(/\D/g, '');
     if (code.length < 6) return;
     setManualOpen(false);
+    lockRef.current = true;
     setBusy(true);
     setStatusText(strings.scan.lookingUp);
     try {
       const product = await lookupProductByBarcode(code);
       if (!product) {
-        Alert.alert(strings.product.notFoundTitle, strings.product.notFoundBody);
+        Alert.alert(strings.product.notFoundTitle, strings.product.notFoundBody, [
+          { text: strings.common.ok, onPress: () => { lockRef.current = false; } },
+        ]);
         return;
       }
       await addHistoryFromProduct(product, 'manual');
       router.push(`/product/${product.barcode}`);
+      unlockSoon(1800);
     } catch {
-      Alert.alert(strings.common.error, strings.common.tryAgain);
+      Alert.alert(strings.common.error, strings.common.tryAgain, [
+        { text: strings.common.ok, onPress: () => { lockRef.current = false; } },
+      ]);
     } finally {
       setBusy(false);
       setStatusText(null);
@@ -97,7 +128,7 @@ export default function EscanearScreen() {
   };
 
   const runVisualCapture = async () => {
-    if (busy || lockRef.current) return;
+    if (!isFocused || busy || lockRef.current) return;
     try {
       lockRef.current = true;
       setBusy(true);
@@ -107,7 +138,9 @@ export default function EscanearScreen() {
         skipProcessing: false,
       });
       if (!photo?.uri) {
-        Alert.alert(strings.common.error, strings.scan.visual.missingImage);
+        Alert.alert(strings.common.error, strings.scan.visual.missingImage, [
+          { text: strings.common.ok, onPress: () => { lockRef.current = false; } },
+        ]);
         return;
       }
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -117,6 +150,7 @@ export default function EscanearScreen() {
         const product = result.candidates[0].product;
         await addHistoryFromProduct(product, 'visual');
         router.push(`/product/${product.barcode}`);
+        unlockSoon(1800);
         return;
       }
 
@@ -125,6 +159,7 @@ export default function EscanearScreen() {
         if (product) {
           await addHistoryFromProduct(product, 'visual');
           router.push(`/product/${product.barcode}`);
+          unlockSoon(1800);
           return;
         }
       }
@@ -148,21 +183,22 @@ export default function EscanearScreen() {
             ),
           },
         });
+        unlockSoon(1800);
         return;
       }
 
-      Alert.alert(strings.scan.visualSoon, result.message);
+      Alert.alert(strings.scan.visualSoon, result.message, [
+        { text: strings.common.ok, onPress: () => { lockRef.current = false; } },
+      ]);
     } catch (err) {
       Alert.alert(
         strings.common.error,
         err instanceof Error ? err.message : strings.common.tryAgain,
+        [{ text: strings.common.ok, onPress: () => { lockRef.current = false; } }],
       );
     } finally {
       setBusy(false);
       setStatusText(null);
-      setTimeout(() => {
-        lockRef.current = false;
-      }, 800);
     }
   };
 
@@ -205,19 +241,25 @@ export default function EscanearScreen() {
         : strings.scan.hintAuto;
 
   const showVisualCapture = mode === 'visual' || mode === 'auto';
+  const scanningEnabled =
+    isFocused && !busy && !manualOpen && mode !== 'visual' && !lockRef.current;
 
   return (
     <View style={styles.root}>
-      <CameraView
-        ref={cameraRef}
-        style={StyleSheet.absoluteFill}
-        facing="back"
-        enableTorch={torch}
-        barcodeScannerSettings={{
-          barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e', 'code128', 'code39', 'qr'],
-        }}
-        onBarcodeScanned={mode === 'visual' || busy ? undefined : handleBarcode}
-      />
+      {isFocused ? (
+        <CameraView
+          ref={cameraRef}
+          style={StyleSheet.absoluteFill}
+          facing="back"
+          enableTorch={torch}
+          barcodeScannerSettings={{
+            barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e', 'code128', 'code39', 'qr'],
+          }}
+          onBarcodeScanned={scanningEnabled ? handleBarcode : undefined}
+        />
+      ) : (
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: '#000' }]} />
+      )}
 
       <View style={styles.shade} />
 
@@ -244,14 +286,17 @@ export default function EscanearScreen() {
         </View>
 
         <View style={styles.footer}>
-          <Pressable style={styles.footerBtn} onPress={() => setTorch((t) => !t)}>
+          <Pressable
+            style={styles.footerBtn}
+            onPress={() => setTorch((t) => !t)}
+            disabled={!isFocused}>
             <Text style={styles.footerBtnText}>{strings.scan.torch}</Text>
           </Pressable>
           {showVisualCapture ? (
             <Pressable
               style={[styles.footerBtn, styles.captureBtn]}
               onPress={() => void runVisualCapture()}
-              disabled={busy}>
+              disabled={busy || !isFocused}>
               <Text style={[styles.footerBtnText, styles.captureText]}>{strings.scan.capture}</Text>
             </Pressable>
           ) : null}

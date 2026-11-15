@@ -40,3 +40,4 @@ yarn-error.*
 coverage/
 *.traineddata
 fixtures/packaging/ingest-out/
+supabase/.temp/

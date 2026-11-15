@@ -1,6 +1,7 @@
 import { lookupOpenFacts } from '@/services/openFoodFacts';
+import { mapNutriments } from '@/services/nutriments';
 import { isSupabaseConfigured, supabase } from '@/services/supabase';
-import type { Product } from '@/types/product';
+import type { Product, ProductAdditive } from '@/types/product';
 import { computeKoraScore } from '@/services/scoring';
 
 async function lookupKoraCatalog(barcode: string): Promise<Product | null> {
@@ -13,8 +14,13 @@ async function lookupKoraCatalog(barcode: string): Promise<Product | null> {
       .maybeSingle();
     if (error || !data) return null;
 
-    const additives = Array.isArray(data.additives) ? data.additives : [];
-    const nutriments = data.nutriments ?? {};
+    const additives = (Array.isArray(data.additives) ? data.additives : []) as ProductAdditive[];
+    const nutriments = mapNutriments(
+      (data.nutriments && typeof data.nutriments === 'object' ? data.nutriments : {}) as Record<
+        string,
+        unknown
+      >,
+    );
     const score = computeKoraScore({
       nutriscoreGrade: data.nutriscore_grade,
       novaGroup: data.nova_group,

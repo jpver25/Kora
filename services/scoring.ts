@@ -73,9 +73,20 @@ function novaPenalty(nova?: number | null): number {
 }
 
 function organicBonus(labels: string[] = []): number {
-  const joined = labels.join(' ').toLowerCase();
-  if (joined.includes('organic') || joined.includes('bio') || joined.includes('orgánico')) {
-    return 5;
+  // Match whole label tokens only — avoid false positives like "probiotic".
+  for (const raw of labels) {
+    const label = raw.toLowerCase().replace(/^en:/, '').replace(/-/g, ' ');
+    if (
+      /\borganic\b/.test(label) ||
+      /\borgánico\b/.test(label) ||
+      /\borganico\b/.test(label) ||
+      /(^|[^a-z])bio([^a-z]|$)/.test(label) ||
+      label === 'bio' ||
+      label.startsWith('bio ') ||
+      label.endsWith(' bio')
+    ) {
+      return 5;
+    }
   }
   return 0;
 }

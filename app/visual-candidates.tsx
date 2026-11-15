@@ -51,7 +51,18 @@ export default function VisualCandidatesScreen() {
           keyExtractor={(item) => item.barcode}
           contentContainerStyle={styles.list}
           ListEmptyComponent={
-            <Text style={styles.empty}>{strings.scan.visual.noMatch}</Text>
+            <View style={{ gap: spacing.md, paddingVertical: spacing.lg }}>
+              <Text style={styles.empty}>{strings.scan.visual.noMatch}</Text>
+              <Button
+                label={strings.scan.visual.helpCta}
+                onPress={() =>
+                  router.push({
+                    pathname: '/comunidad/contribuir',
+                    params: { source: 'failed_visual' },
+                  })
+                }
+              />
+            </View>
           }
           renderItem={({ item }) => (
             <Pressable

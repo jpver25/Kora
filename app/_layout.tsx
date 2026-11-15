@@ -60,6 +60,11 @@ export default function RootLayout() {
           name="preferencias"
           options={{ headerShown: true, title: 'Preferencias', animation: 'slide_from_right' }}
         />
+        <Stack.Screen name="comunidad/contribuir" options={{ headerShown: true, title: 'Contribuir' }} />
+        <Stack.Screen name="comunidad/corregir" options={{ headerShown: true, title: 'Corregir' }} />
+        <Stack.Screen name="comunidad/resena" options={{ headerShown: true, title: 'Reseña' }} />
+        <Stack.Screen name="comunidad/marca" options={{ headerShown: true, title: 'Marca' }} />
+        <Stack.Screen name="comunidad/actividad" options={{ headerShown: true, title: 'Aportes' }} />
       </Stack>
     </>
   );

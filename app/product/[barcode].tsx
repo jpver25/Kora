@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   ScrollView,
   StyleSheet,
@@ -16,6 +17,12 @@ import { lookupProductByBarcode } from '@/services/productLookup';
 import { findHealthierAlternatives } from '@/services/catalogSearch';
 import { getDietaryPreferences, evaluateCompatibility, type CompatibilityWarning } from '@/services/preferences';
 import { isFavorite, toggleFavorite } from '@/services/favorites';
+import {
+  listCosmeticReviews,
+  reportReview,
+  voteReviewHelpful,
+} from '@/services/communityStore';
+import type { CosmeticReview } from '@/types/community';
 import type { Product } from '@/types/product';
 import { colors, radii, spacing, typography } from '@/theme';
 
@@ -28,6 +35,7 @@ export default function ProductScreen() {
   const [warnings, setWarnings] = useState<CompatibilityWarning[]>([]);
   const [alternatives, setAlternatives] = useState<Product[]>([]);
   const [altLoading, setAltLoading] = useState(false);
+  const [reviews, setReviews] = useState<CosmeticReview[]>([]);
 
   useEffect(() => {
     let alive = true;
@@ -52,8 +60,14 @@ export default function ProductScreen() {
           setWarnings(evaluateCompatibility(found, prefs));
           setAltLoading(true);
           try {
-            const alts = await findHealthierAlternatives(found);
-            if (alive) setAlternatives(alts);
+            const [alts, revs] = await Promise.all([
+              findHealthierAlternatives(found),
+              found.category === 'beauty' ? listCosmeticReviews(found.barcode) : Promise.resolve([]),
+            ]);
+            if (alive) {
+              setAlternatives(alts);
+              setReviews(revs);
+            }
           } finally {
             if (alive) setAltLoading(false);
           }
@@ -88,7 +102,20 @@ export default function ProductScreen() {
           <View style={styles.center}>
             <Text style={styles.notFoundTitle}>{strings.product.notFoundTitle}</Text>
             <Text style={styles.notFoundBody}>{strings.product.notFoundBody}</Text>
-            <Button label={strings.product.retry} onPress={() => router.replace('/(tabs)/escanear')} />
+            <Button
+              label={strings.product.contributeMissing}
+              onPress={() =>
+                router.push({
+                  pathname: '/comunidad/contribuir',
+                  params: { source: 'missing_product', barcode: String(barcode ?? '') },
+                })
+              }
+            />
+            <Button
+              label={strings.product.retry}
+              variant="ghost"
+              onPress={() => router.replace('/(tabs)/escanear')}
+            />
           </View>
         ) : (
           <>
@@ -119,6 +146,50 @@ export default function ProductScreen() {
               }}
               style={{ marginTop: spacing.md }}
             />
+
+            <View style={styles.communityActions}>
+              <Button
+                label={strings.product.correctProduct}
+                variant="ghost"
+                onPress={() =>
+                  router.push({
+                    pathname: '/comunidad/corregir',
+                    params: {
+                      barcode: product.barcode,
+                      name: product.name,
+                      brand: product.brand ?? '',
+                    },
+                  })
+                }
+              />
+              {product.category === 'beauty' ? (
+                <Button
+                  label={strings.product.writeReview}
+                  variant="ghost"
+                  onPress={() =>
+                    router.push({
+                      pathname: '/comunidad/resena',
+                      params: { barcode: product.barcode },
+                    })
+                  }
+                  style={{ marginTop: spacing.sm }}
+                />
+              ) : null}
+              <Button
+                label={strings.product.brandRequest}
+                variant="ghost"
+                onPress={() =>
+                  router.push({
+                    pathname: '/comunidad/marca',
+                    params: {
+                      brand: product.brand ?? '',
+                      barcode: product.barcode,
+                    },
+                  })
+                }
+                style={{ marginTop: spacing.sm }}
+              />
+            </View>
 
             {warnings.length > 0 ? (
               <View style={styles.warnBox}>
@@ -185,6 +256,83 @@ export default function ProductScreen() {
                 ))
               )}
             </View>
+
+            {product.category === 'beauty' ? (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>{strings.product.reviewsTitle}</Text>
+                <Text style={styles.line}>{strings.product.reviewsScientificNote}</Text>
+                {reviews.length === 0 ? (
+                  <Text style={styles.line}>{strings.community.emptyActivity}</Text>
+                ) : (
+                  reviews.map((r) => (
+                    <View key={r.id} style={styles.reviewCard}>
+                      <Text style={styles.reviewStars}>
+                        {'★'.repeat(r.stars)}
+                        {'☆'.repeat(5 - r.stars)}
+                      </Text>
+                      <Text style={styles.line}>{r.body}</Text>
+                      <Text style={styles.meta}>
+                        {strings.community.status}: {strings.community.statuses[r.status]} ·{' '}
+                        {strings.community.helpful}: {r.helpfulCount}
+                      </Text>
+                      <View style={styles.reviewActions}>
+                        <Button
+                          label={strings.community.helpful}
+                          variant="ghost"
+                          onPress={async () => {
+                            const res = await voteReviewHelpful(r.id);
+                            if (!res.ok) {
+                              Alert.alert(
+                                strings.common.error,
+                                res.reason === 'already_voted'
+                                  ? strings.community.alreadyVoted
+                                  : res.reason,
+                              );
+                              return;
+                            }
+                            setReviews((prev) =>
+                              prev.map((x) =>
+                                x.id === r.id
+                                  ? { ...x, helpfulCount: x.helpfulCount + 1 }
+                                  : x,
+                              ),
+                            );
+                          }}
+                        />
+                        <Button
+                          label={strings.community.report}
+                          variant="ghost"
+                          onPress={async () => {
+                            const res = await reportReview(r.id);
+                            if (!res.ok) {
+                              Alert.alert(
+                                strings.common.error,
+                                res.reason === 'already_reported'
+                                  ? strings.community.alreadyReported
+                                  : res.reason,
+                              );
+                              return;
+                            }
+                            Alert.alert(strings.community.reported);
+                            setReviews((prev) =>
+                              prev.map((x) =>
+                                x.id === r.id
+                                  ? {
+                                      ...x,
+                                      reportCount: x.reportCount + 1,
+                                      status: 'under_review',
+                                    }
+                                  : x,
+                              ),
+                            );
+                          }}
+                        />
+                      </View>
+                    </View>
+                  ))
+                )}
+              </View>
+            ) : null}
 
             <Button
               label={strings.product.retry}
@@ -271,4 +419,14 @@ const styles = StyleSheet.create({
   },
   nutriLabel: { ...typography.body, color: colors.muted },
   nutriValue: { ...typography.bodyStrong, color: colors.ink },
+  communityActions: { marginTop: spacing.md, gap: 0 },
+  reviewCard: {
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    gap: 4,
+  },
+  reviewStars: { ...typography.bodyStrong, color: colors.warning },
+  reviewActions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xs },
 });

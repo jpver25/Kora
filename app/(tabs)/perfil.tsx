@@ -78,6 +78,20 @@ export default function PerfilScreen() {
         label={strings.profile.openFavorites}
         variant="ghost"
         onPress={() => router.push({ pathname: '/(tabs)/historial', params: { favorites: '1' } })}
+        style={{ marginTop: spacing.sm }}
+      />
+      <Button
+        label={strings.profile.openContribute}
+        variant="ghost"
+        onPress={() =>
+          router.push({ pathname: '/comunidad/contribuir', params: { source: 'missing_product' } })
+        }
+        style={{ marginTop: spacing.sm }}
+      />
+      <Button
+        label={strings.profile.openCommunity}
+        variant="ghost"
+        onPress={() => router.push('/comunidad/actividad')}
         style={{ marginTop: spacing.sm, marginBottom: spacing.md }}
       />
 

@@ -51,7 +51,14 @@
         }
       ],
       "expo-secure-store",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Kora usa tus fotos para aportes comunitarios de empaques.",
+          "cameraPermission": "Kora usa la cámara para aportes comunitarios de empaques."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

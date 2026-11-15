@@ -1,50 +1,78 @@
-# Welcome to your Expo app 👋
+# Kora
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Escáner inteligente de alimentos y cosméticos para Chile.  
+**Sabe qué estás comprando.**
 
-## Get started
+Stack: **React Native · Expo · TypeScript · Expo Router · Expo Camera · Supabase**.  
+UI en **español (Chile)**. Flujo principal: Expo Go en iPhone.
 
-1. Install dependencies
+## Arranque rápido (Expo Go)
 
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+1. Instala dependencias:
 
 ```bash
-npm run reset-project
+npm install
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+2. (Opcional) Configura Supabase:
 
-## Learn more
+```bash
+cp .env.example .env
+# Completa EXPO_PUBLIC_SUPABASE_URL y EXPO_PUBLIC_SUPABASE_ANON_KEY
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+Sin `.env`, la app igual busca productos en **Open Food Facts** / **Open Beauty Facts**.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+3. Inicia Metro:
 
-## Join the community
+```bash
+npx expo start
+```
 
-Join our community of developers creating universal apps.
+4. Abre **Expo Go** en el iPhone y escanea el QR.
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+### Probar el escáner
+
+- Ve a la pestaña **Escanear** (botón lime destacado).
+- Permite la cámara.
+- Centra un código de barras EAN/UPC, o usa **Ingresar código**.
+- Códigos de prueba conocidos en OFF (ejemplos públicos): `3017620422003` (Nutella), `5449000000996` (Coca-Cola).
+
+### Cuando Expo Go no alcanza
+
+Funciones nativas avanzadas (IA on-device, módulos custom) requieren:
+
+```bash
+npx eas build --profile development --platform ios
+```
+
+y `expo-dev-client`. Documentado en `ARCHITECTURE.md`.
+
+## Documentación
+
+| Doc | Contenido |
+| --- | --- |
+| [ARCHITECTURE.md](./ARCHITECTURE.md) | Módulos, navegación, hooks Fase 3 |
+| [IMPLEMENTATION_STATUS.md](./IMPLEMENTATION_STATUS.md) | Qué está listo / pendiente |
+| [TESTING.md](./TESTING.md) | Checklist Expo Go + casos |
+| [DATABASE_SETUP.md](./DATABASE_SETUP.md) | Supabase + migración |
+
+## Estructura
+
+```
+app/                 Expo Router (tabs, onboarding, producto)
+components/          UI, scanner, product
+services/            OFF lookup, scoring, history, supabase, visual hook
+theme/               tokens de marca
+supabase/migrations/ SQL skeleton + pgvector
+assets/images/brand/ mascota e ilustraciones
+```
+
+## Marca
+
+Colores: `#163B35` · `#537C65` · `#FAF8F4` · `#C8E77B` · `#FFFFFF` · `#17211D`
+
+## Licencia / datos
+
+Los productos públicos se consultan a Open Food Facts / Open Beauty Facts bajo sus términos.  
+El puntaje **Kora** es original (no usa copy ni fórmula propietaria de Yuka).

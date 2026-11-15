@@ -38,3 +38,5 @@ yarn-error.*
 
 # generated
 coverage/
+*.traineddata
+fixtures/packaging/ingest-out/

@@ -1,0 +1,29 @@
+{
+  "description": "Real packaging images downloaded from Open Food Facts for visual pipeline tests. ODbL/OFF terms apply. No invented products.",
+  "items": [
+    {
+      "id": "nutella",
+      "barcode": "3017620422003",
+      "expectedNameContains": ["nutella"],
+      "imageUrl": "https://images.openfoodfacts.org/images/products/301/762/042/2003/front_en.879.400.jpg",
+      "fixtureFile": "nutella-3017620422003.jpg",
+      "ocrFixture": "NUTELLA Ferrero hazelnut spread with cocoa ingredientes azúcar palm oil"
+    },
+    {
+      "id": "coca-cola",
+      "barcode": "5449000000996",
+      "expectedNameContains": ["coca", "cola"],
+      "imageUrl": "https://images.openfoodfacts.org/images/products/544/900/000/0996/front_en.1129.400.jpg",
+      "fixtureFile": "coca-cola-5449000000996.jpg",
+      "ocrFixture": "Coca-Cola"
+    },
+    {
+      "id": "prince",
+      "barcode": "7622210449283",
+      "expectedNameContains": ["prince"],
+      "imageUrl": "https://images.openfoodfacts.org/images/products/762/221/044/9283/front_en.605.400.jpg",
+      "fixtureFile": "prince-7622210449283.jpg",
+      "ocrFixture": "Prince"
+    }
+  ]
+}

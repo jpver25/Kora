@@ -8,58 +8,51 @@
 
 | Capa | Ruta | Rol |
 | --- | --- | --- |
-| UI / navegación | `app/` | Expo Router: gate, onboarding, tabs, ficha producto |
-| Componentes | `components/` | Design system ligero, scanner, cards |
-| Dominio | `services/` | Lookup, scoring, historial, supabase, visual hook |
-| Tipos | `types/` | `Product`, historial, reconocimiento visual |
+| UI / navegación | `app/` | Expo Router: gate, onboarding, tabs, ficha, candidatos visuales |
+| Componentes | `components/` | Design system, scanner, cards |
+| Dominio | `services/` | Lookup, scoring, historial, supabase, **vision/** |
+| Tipos | `types/` | `Product`, `vision` |
 | Tema | `theme/` | Tokens de marca + tipografía |
 | Copy | `constants/strings.es.ts` | Español (Chile) |
-| Datos | `supabase/migrations/` | Postgres + pgvector skeleton |
+| Datos | `supabase/migrations/` | Postgres + pgvector |
+| Edge | `supabase/functions/visual-identify/` | OCR / embed server-side |
 
 ## Navegación
 
-- `app/index.tsx` — splash gate + redirect onboarding/tabs  
-- `app/onboarding.tsx` — carrusel con mascota / arte de marca  
+- `app/index.tsx` — splash gate  
+- `app/onboarding.tsx` — carrusel con mascota  
 - `app/(tabs)/` — Inicio · Explorar · **Escanear** · Historial · Perfil  
-- `app/product/[barcode].tsx` — shell de resultado + ScoreRing
+- `app/product/[barcode].tsx` — ficha + ScoreRing  
+- `app/visual-candidates.tsx` — picker de coincidencias visuales  
 
-El tab **Escanear** usa un botón elevado (lime) para destacar el CTA principal.
+## Identificación
 
-## Identificación de producto
-
-1. **Barcode / manual** → `lookupProductByBarcode`  
-   - Intenta catálogo Supabase (`products`) si hay keys  
-   - Fallback: Open Food Facts, luego Open Beauty Facts  
-2. **Visual (Fase 3)** → `recognizeProductVisually`  
-   - Stub estable que el UI ya invoca en modo Visual  
-   - Futuro: captura frame → embedding → `pgvector` / modelo hosted
+1. **Barcode / manual** → `lookupProductByBarcode` (Kora catalog → OFF → OBF)  
+2. **Visual** → `identifyPackagingFromImage`  
+   - ProductDetection → OCR → ImageEmbedding → VisualProductSearch → ranking → confidence tier  
+   - Detalle: [VISUAL_AI.md](./VISUAL_AI.md)
 
 ## Scoring (Kora)
 
-`services/scoring.ts` combina:
-
-- Nutri-Score (si existe) o heurística de nutrimentos  
-- Penalización por cantidad de aditivos  
-- Ajuste por grupo NOVA  
-- Bonus orgánico/bio  
-
+`services/scoring.ts`: Nutri-Score / nutrimentos + aditivos + NOVA + bonus orgánico.  
 Bandas: Excelente ≥75 · Bueno ≥50 · Mediocre ≥25 · Malo \<25
 
-## Persistencia local
+## Persistencia
 
-- Onboarding flag + historial de escaneos en **AsyncStorage**  
-- Cuando Auth/Supabase estén vivos, `scan_events` y `profiles` toman el relevo
+- Local: onboarding + historial (AsyncStorage)  
+- Supabase: `products`, `product_reference_images`, `scan_events`, `profiles`
 
-## Expo Go vs Dev Client
+## Expo Go vs Dev Client (iPhone)
 
 | Capacidad | Expo Go | Dev Client / EAS |
 | --- | --- | --- |
-| Tabs, onboarding, OFF lookup | ✅ | ✅ |
-| `expo-camera` barcode | ✅ | ✅ |
-| Módulos nativos custom / ML on-device | ❌ | ✅ |
+| Tabs, barcode, OFF lookup | ✅ | ✅ |
+| Captura visual + cloud OCR/embed | ✅ | ✅ |
+| pgvector via Supabase JS | ✅ | ✅ |
+| ML Kit on-device | ❌ | ✅ (futuro) |
 
 ## Seguridad
 
-- Solo `EXPO_PUBLIC_*` en el cliente  
-- RLS esbozado en la migración  
-- Nunca commitear service role keys
+- Preferir Edge Function + secretos de servidor  
+- `EXPO_PUBLIC_OPENAI_API_KEY` solo para desarrollo  
+- RLS en migraciones; nunca service role en el cliente

@@ -3,8 +3,8 @@
 ## Prerrequisitos
 
 - Node 20+ / npm  
-- App **Expo Go** (iOS o Android) en la misma red, o túnel Expo  
-- (Opcional) `.env` con Supabase
+- **Expo Go** en iPhone (prioridad)  
+- Opcional: `.env` con Supabase + visión
 
 ## Comandos
 
@@ -13,58 +13,37 @@ npm install
 npx expo start
 # o
 npx expo start --tunnel
-```
 
-Lint:
-
-```bash
 npm run lint
-```
-
-Typecheck:
-
-```bash
-npx tsc --noEmit
-```
-
-Smoke scoring (sin UI):
-
-```bash
+npm run typecheck
 npm run test:scoring
+npm run test:confidence
+npm run test:visual
 ```
 
-## Checklist Expo Go
+## Checklist Expo Go (iPhone)
 
-1. [ ] Arranca Metro sin errores rojos  
-2. [ ] Splash muestra mascota / marca Kora  
-3. [ ] Onboarding se puede completar u omitir  
-4. [ ] Tabs visibles; Escanear es el CTA destacado  
-5. [ ] Inicio muestra tip + recientes vacíos  
-6. [ ] Explorar muestra categorías  
-7. [ ] Escanear pide permiso de cámara y lo respeta  
-8. [ ] Escaneo de un EAN real abre ficha con nombre/imagen/puntaje  
-9. [ ] Código manual inválido / desconocido muestra “no encontrado”  
-10. [ ] Historial lista el escaneo; borrar limpia  
-11. [ ] Perfil indica si Supabase falta  
-12. [ ] Modo Visual muestra mensaje de Fase 3 (no crashea)
+1. [ ] Metro sin errores rojos  
+2. [ ] Splash / onboarding con mascota  
+3. [ ] Tabs; Escanear destacado  
+4. [ ] Barcode real → ficha con puntaje  
+5. [ ] Código manual desconocido → no encontrado  
+6. [ ] Historial persiste escaneos  
+7. [ ] Perfil avisa si falta Supabase / proveedor de visión  
+8. [ ] Modo Visual → **Capturar envase**  
+9. [ ] Sin OpenAI/Edge → mensaje `needsProvider`, **sin productos inventados**  
+10. [ ] Con visión configurada → candidatos reales OFF o auto-open  
+11. [ ] Picker `visual-candidates` abre ficha al elegir  
 
-## Casos de datos
+## Fixtures visuales
 
-| Input | Esperado |
-| --- | --- |
-| `3017620422003` | Producto OFF (Nutella) + puntaje |
-| `5449000000996` | Bebida OFF + puntaje |
-| `000000` | No encontrado |
-| Barcode cosmético en OBF | Fallback beauty si no está en OFF |
+Imágenes reales OFF en `fixtures/packaging/`.  
+Resultados medidos: `fixtures/packaging/MEASURED_RESULTS.json` (ver `VISUAL_AI.md`).
 
 ## Dispositivos
 
-- Prioridad: iPhone físico + Expo Go  
-- Android Expo Go también válido para barcode  
-- Simulador iOS: cámara limitada → usar **Ingresar código**
-
-## Regresión visual rápida
-
-- Cream `#FAF8F4`, primary `#163B35`, accent lime `#C8E77B`  
-- Tipografía Fraunces (títulos) / Nunito (cuerpo)  
-- Mascot aparece en splash, onboarding y empty states
+| Escenario | Camino |
+| --- | --- |
+| iPhone + Expo Go | **Preferido** para barcode + cloud visual |
+| Simulador | Usar ingreso manual / fixtures Node |
+| ML Kit on-device | Requiere Dev Client + EAS (aún no) |

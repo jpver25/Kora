@@ -9,11 +9,7 @@ function resolveOpenAiKey(): string | null {
 }
 
 function resolveVisionEdgeUrl(): string | null {
-  const explicit = process.env.EXPO_PUBLIC_KORA_VISION_URL?.trim();
-  if (explicit) return explicit;
-  const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL?.trim();
-  if (supabaseUrl) return `${supabaseUrl.replace(/\/$/, '')}/functions/v1/visual-identify`;
-  return null;
+  return process.env.EXPO_PUBLIC_KORA_VISION_URL?.trim() || null;
 }
 
 function l2normalize(vector: number[]): number[] {

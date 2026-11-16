@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -8,7 +8,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Stack, useLocalSearchParams, router } from 'expo-router';
+import { Stack, useLocalSearchParams, router, useFocusEffect } from 'expo-router';
 import { ScoreRing } from '@/components/ui/ScoreRing';
 import { Button } from '@/components/ui/Button';
 import { ProductCard } from '@/components/product/ProductCard';
@@ -22,7 +22,7 @@ import {
   reportReview,
   voteReviewHelpful,
 } from '@/services/communityStore';
-import { alternativesLimit, getCachedEntitlements } from '@/services/entitlements';
+import { alternativesLimit, getEffectiveEntitlements } from '@/services/entitlements';
 import type { CosmeticReview } from '@/types/community';
 import type { Product } from '@/types/product';
 import { colors, radii, spacing, typography } from '@/theme';
@@ -38,6 +38,25 @@ export default function ProductScreen() {
   const [altLoading, setAltLoading] = useState(false);
   const [reviews, setReviews] = useState<CosmeticReview[]>([]);
 
+  const refreshReviews = useCallback(async (code: string, category?: Product['category']) => {
+    if (category && category !== 'beauty') {
+      setReviews([]);
+      return;
+    }
+    try {
+      setReviews(await listCosmeticReviews(code));
+    } catch {
+      // keep prior
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!barcode || !product || product.category !== 'beauty') return;
+      void refreshReviews(String(barcode), product.category);
+    }, [barcode, product, refreshReviews]),
+  );
+
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -52,33 +71,37 @@ export default function ProductScreen() {
         setProduct(found);
         setError(!found);
         if (found) {
-          const [prefs, favored] = await Promise.all([
-            getDietaryPreferences(),
-            isFavorite(found.barcode),
-          ]);
-          if (!alive) return;
-          setFav(favored);
-          setWarnings(evaluateCompatibility(found, prefs));
+          try {
+            const [prefs, favored] = await Promise.all([
+              getDietaryPreferences(),
+              isFavorite(found.barcode),
+            ]);
+            if (!alive) return;
+            setFav(favored);
+            setWarnings(evaluateCompatibility(found, prefs));
+          } catch {
+            // Preferences/favorites optional — keep product sheet visible.
+          }
           setAltLoading(true);
           try {
-            const snap = await getCachedEntitlements();
-            const limit = alternativesLimit(
-              snap ?? {
-                tier: 'free',
-                isPremium: false,
-                source: 'none',
-                checkedAt: new Date().toISOString(),
-              },
-            );
+            const snap = await getEffectiveEntitlements();
+            const limit = alternativesLimit(snap);
             const [alts, revs] = await Promise.all([
-              findHealthierAlternatives(found),
-              found.category === 'beauty' ? listCosmeticReviews(found.barcode) : Promise.resolve([]),
+              findHealthierAlternatives(found).catch(() => [] as Product[]),
+              found.category === 'beauty'
+                ? listCosmeticReviews(found.barcode).catch(() => [] as CosmeticReview[])
+                : Promise.resolve([] as CosmeticReview[]),
             ]);
             if (alive) {
               setAlternatives(
                 Number.isFinite(limit) ? alts.slice(0, Math.max(0, limit)) : alts,
               );
               setReviews(revs);
+            }
+          } catch {
+            if (alive) {
+              setAlternatives([]);
+              setReviews([]);
             }
           } finally {
             if (alive) setAltLoading(false);
@@ -274,7 +297,7 @@ export default function ProductScreen() {
                 <Text style={styles.sectionTitle}>{strings.product.reviewsTitle}</Text>
                 <Text style={styles.line}>{strings.product.reviewsScientificNote}</Text>
                 {reviews.length === 0 ? (
-                  <Text style={styles.line}>{strings.community.emptyActivity}</Text>
+                  <Text style={styles.line}>{strings.community.emptyReviews}</Text>
                 ) : (
                   reviews.map((r) => (
                     <View key={r.id} style={styles.reviewCard}>

@@ -14,6 +14,14 @@ import { strings } from '@/constants/strings.es';
 
 export type { VisualSearchResult };
 
+let recognitionGeneration = 0;
+
+/** Cancel in-flight visual recognition results (stale UI updates). */
+export function cancelStaleVisualRecognition(): number {
+  recognitionGeneration += 1;
+  return recognitionGeneration;
+}
+
 /**
  * Full Phase 3 visual pipeline:
  * ProductDetection → OCR → ImageEmbedding → VisualProductSearch → ranking → confidence tier.
@@ -23,6 +31,7 @@ export async function identifyPackagingFromImage(
   request: VisualRecognitionRequest,
 ): Promise<VisualSearchResult> {
   const started = Date.now();
+  const generation = ++recognitionGeneration;
   const provider = getActiveVisionProvider();
 
   if (!request.imageUri) {
@@ -30,11 +39,27 @@ export async function identifyPackagingFromImage(
   }
 
   const { frame, base64, mimeType } = await frameToBase64Jpeg(request.imageUri);
+  if (generation !== recognitionGeneration) {
+    return cancelledResult(provider, started);
+  }
 
-  const [ocr, embedding] = await Promise.all([
-    extractPackagingText({ base64, mimeType }),
-    embedPackagingImage({ base64, mimeType }),
-  ]);
+  let ocr;
+  let embedding;
+  try {
+    [ocr, embedding] = await Promise.all([
+      extractPackagingText({ base64, mimeType }),
+      embedPackagingImage({ base64, mimeType }),
+    ]);
+  } catch (err) {
+    // Edge misconfigured / network — fall back to needsProvider rather than crashing UI.
+    const message =
+      err instanceof Error ? err.message : strings.scan.visual.needsProvider;
+    return emptyResult(provider === 'edge' ? 'none' : provider, message, started);
+  }
+
+  if (generation !== recognitionGeneration) {
+    return cancelledResult(provider, started);
+  }
 
   if (provider === 'none' && !ocr.fullText) {
     return {
@@ -60,9 +85,18 @@ export async function identifyPackagingFromImage(
     searchByEmbedding(embedding),
   ]);
 
+  if (generation !== recognitionGeneration) {
+    return cancelledResult(provider, started);
+  }
+
   const merged = mergeCandidates([ocrHits, vectorHits]);
   const ranked = rankVisualCandidates(merged, ocr);
   const hydrated = await hydrateCandidates(ranked);
+
+  if (generation !== recognitionGeneration) {
+    return cancelledResult(provider, started);
+  }
+
   const { tier, candidates } = assignConfidenceTier(hydrated);
 
   return {
@@ -83,53 +117,27 @@ export async function identifyPackagingFromImage(
   };
 }
 
-/** Backward-compatible wrapper used by older call sites. */
-export async function recognizeProductVisually(
-  request: VisualRecognitionRequest,
-): Promise<VisualRecognitionResult> {
-  try {
-    const result = await identifyPackagingFromImage(request);
-    if (result.tier === 'no_match' && result.provider === 'none') {
-      return {
-        status: 'error',
-        message: result.message,
-        candidates: [],
-      };
-    }
-    return {
-      status: 'ok',
-      message: result.message,
-      candidates: result.candidates.map((c) => ({
-        name: c.name,
-        confidence: c.score,
-        barcode: c.barcode,
-      })),
-    };
-  } catch (err) {
-    return {
-      status: 'error',
-      message: err instanceof Error ? err.message : strings.common.error,
-    };
-  }
-}
-
-function messageForTier(
-  tier: VisualSearchResult['tier'],
-  count: number,
+function cancelledResult(
   provider: VisualSearchResult['provider'],
-): string {
-  switch (tier) {
-    case 'auto_open':
-      return strings.scan.visual.autoOpen;
-    case 'candidates':
-      return strings.scan.visual.candidates.replace('{n}', String(count));
-    case 'low_confidence':
-      return strings.scan.visual.lowConfidence;
-    default:
-      return provider === 'none'
-        ? strings.scan.visual.needsProvider
-        : strings.scan.visual.noMatch;
-  }
+  started: number,
+): VisualSearchResult {
+  return {
+    tier: 'no_match',
+    candidates: [],
+    ocr: null,
+    embedding: null,
+    frame: null,
+    provider,
+    message: strings.common.cancel,
+    diagnostics: {
+      ocrTokenCount: 0,
+      embeddingDims: 0,
+      pgvectorHits: 0,
+      offSearchHits: 0,
+      elapsedMs: Date.now() - started,
+      cancelled: true,
+    },
+  };
 }
 
 function emptyResult(
@@ -147,10 +155,31 @@ function emptyResult(
     message,
     diagnostics: {
       ocrTokenCount: 0,
-      embeddingDims: null,
+      embeddingDims: 0,
       pgvectorHits: 0,
       offSearchHits: 0,
       elapsedMs: Date.now() - started,
     },
   };
 }
+
+function messageForTier(
+  tier: VisualSearchResult['tier'],
+  count: number,
+  provider: VisualSearchResult['provider'],
+): string {
+  if (provider === 'none' && tier === 'no_match') return strings.scan.visual.needsProvider;
+  switch (tier) {
+    case 'auto_open':
+      return strings.scan.visual.autoOpen;
+    case 'candidates':
+      return strings.scan.visual.candidates.replace('{n}', String(count));
+    case 'low_confidence':
+      return strings.scan.visual.lowConfidence;
+    default:
+      return strings.scan.visual.noMatch;
+  }
+}
+
+// Keep VisualRecognitionResult type used by older imports.
+export type { VisualRecognitionResult };

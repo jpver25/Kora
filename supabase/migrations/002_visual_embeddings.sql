@@ -33,17 +33,10 @@ create policy "reference_images_public_read"
   on public.product_reference_images for select
   using (true);
 
--- Service role / authenticated ingest only (tighten further with auth later)
+-- Writes are service-role only (bypasses RLS). Do NOT allow anon insert/update —
+-- poisoned embeddings can drive auto_open to attacker barcodes.
 drop policy if exists "reference_images_service_write" on public.product_reference_images;
-create policy "reference_images_service_write"
-  on public.product_reference_images for insert
-  with check (true);
-
 drop policy if exists "reference_images_service_update" on public.product_reference_images;
-create policy "reference_images_service_update"
-  on public.product_reference_images for update
-  using (true)
-  with check (true);
 
 create or replace function public.match_product_reference_images(
   query_embedding vector(768),

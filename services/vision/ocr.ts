@@ -95,12 +95,13 @@ function resolveOpenAiKey(): string | null {
   return process.env.EXPO_PUBLIC_OPENAI_API_KEY?.trim() || null;
 }
 
+/**
+ * Edge vision is opt-in via explicit EXPO_PUBLIC_KORA_VISION_URL.
+ * Do not infer from catalog Supabase URL alone — undeployed functions look "ready"
+ * and abort OCR before OpenAI can run.
+ */
 function resolveVisionEdgeUrl(): string | null {
-  const explicit = process.env.EXPO_PUBLIC_KORA_VISION_URL?.trim();
-  if (explicit) return explicit;
-  const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL?.trim();
-  if (supabaseUrl) return `${supabaseUrl.replace(/\/$/, '')}/functions/v1/visual-identify`;
-  return null;
+  return process.env.EXPO_PUBLIC_KORA_VISION_URL?.trim() || null;
 }
 
 export function getActiveVisionProvider(): VisionProviderId {

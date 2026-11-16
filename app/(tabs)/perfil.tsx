@@ -9,7 +9,7 @@ import { setOnboardingCompleted } from '@/services/onboarding';
 import { getActiveVisionProvider } from '@/services/vision/ocr';
 import { checkSupabaseHealth, type SupabaseHealth } from '@/services/supabaseHealth';
 import { getAuthState, type AuthState } from '@/services/auth';
-import { getCachedEntitlements, getScanUsage } from '@/services/entitlements';
+import { getEffectiveEntitlements, getScanUsage } from '@/services/entitlements';
 import type { EntitlementSnapshot } from '@/types/entitlements';
 import { colors, radii, spacing, typography } from '@/theme';
 
@@ -27,7 +27,7 @@ export default function PerfilScreen() {
       Promise.all([
         checkSupabaseHealth(),
         getAuthState(),
-        getCachedEntitlements(),
+        getEffectiveEntitlements(),
         getScanUsage(),
       ]).then(([h, a, e, u]) => {
         if (!alive) return;

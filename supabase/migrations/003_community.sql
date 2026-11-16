@@ -114,33 +114,34 @@ alter table public.brand_improvement_requests enable row level security;
 -- Anon can insert contributions/corrections/reviews/requests (guest catalog growth).
 -- Reads: approved reviews public; own drafts via guest_key filtered client-side / later auth.
 
+-- Clients may only insert draft/submitted (never self-approve). Prefer also applying 006.
 drop policy if exists "contributions_insert" on public.product_contributions;
 create policy "contributions_insert"
   on public.product_contributions for insert
-  with check (true);
+  with check (status in ('draft', 'submitted'));
 
 drop policy if exists "contributions_select" on public.product_contributions;
-create policy "contributions_select"
+create policy "contributions_select_own"
   on public.product_contributions for select
-  using (true);
+  using (auth.uid() is not null and user_id = auth.uid());
 
 drop policy if exists "corrections_insert" on public.product_corrections;
 create policy "corrections_insert"
   on public.product_corrections for insert
-  with check (true);
+  with check (status in ('draft', 'submitted'));
 
 drop policy if exists "corrections_select" on public.product_corrections;
-create policy "corrections_select"
+create policy "corrections_select_own"
   on public.product_corrections for select
-  using (true);
+  using (auth.uid() is not null and user_id = auth.uid());
 
 drop policy if exists "reviews_insert" on public.cosmetic_reviews;
 create policy "reviews_insert"
   on public.cosmetic_reviews for insert
-  with check (true);
+  with check (status in ('draft', 'submitted'));
 
 drop policy if exists "reviews_select_approved" on public.cosmetic_reviews;
-create policy "reviews_select_approved"
+create policy "reviews_select_public"
   on public.cosmetic_reviews for select
   using (status in ('approved', 'submitted', 'under_review'));
 
@@ -162,12 +163,12 @@ create policy "review_reports_insert"
 drop policy if exists "brand_requests_insert" on public.brand_improvement_requests;
 create policy "brand_requests_insert"
   on public.brand_improvement_requests for insert
-  with check (true);
+  with check (status in ('draft', 'submitted'));
 
 drop policy if exists "brand_requests_select" on public.brand_improvement_requests;
-create policy "brand_requests_select"
+create policy "brand_requests_select_own"
   on public.brand_improvement_requests for select
-  using (true);
+  using (auth.uid() is not null and user_id = auth.uid());
 
 -- Helpful vote increment (anon-safe RPC)
 create or replace function public.vote_cosmetic_review_helpful(

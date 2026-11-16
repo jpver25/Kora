@@ -17,37 +17,63 @@ async function searchOpenFacts(
   query: string,
   kind: 'food' | 'beauty',
 ): Promise<VisualCandidate[]> {
-  const base =
-    kind === 'food'
-      ? 'https://world.openfoodfacts.org'
-      : 'https://world.openbeautyfacts.org';
-  const url =
-    `${base}/cgi/search.pl?search_terms=${encodeURIComponent(query)}` +
-    `&search_simple=1&action=process&json=1&page_size=8`;
-  const res = await fetch(url, {
-    headers: {
-      Accept: 'application/json',
-      'User-Agent': 'KoraApp/1.0 (Chile; visual-search)',
-    },
-  });
-  if (!res.ok) return [];
-  const data = (await res.json()) as { products?: OffSearchHit[] };
-  const products = data.products ?? [];
-  return products
-    .filter((p) => p.code && (p.product_name || p.product_name_es))
-    .map((p, index) => {
-      const name = p.product_name_es || p.product_name || 'Producto';
-      // Rank by OFF order with mild decay — never invent barcodes.
-      const score = Math.max(0.35, 0.78 - index * 0.06);
-      return {
-        barcode: String(p.code),
-        name,
-        brand: p.brands ?? null,
-        imageUrl: p.image_front_url || p.image_url || null,
-        score,
-        sources: [kind === 'food' ? 'ocr_off_search' : 'ocr_obf_search'] as VisualCandidate['sources'],
-      };
+  try {
+    const base =
+      kind === 'food'
+        ? 'https://world.openfoodfacts.org'
+        : 'https://world.openbeautyfacts.org';
+    const url =
+      `${base}/cgi/search.pl?search_terms=${encodeURIComponent(query)}` +
+      `&search_simple=1&action=process&json=1&page_size=8`;
+    const res = await fetch(url, {
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': 'KoraApp/1.0 (Chile; visual-search)',
+      },
     });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { products?: OffSearchHit[] };
+    const products = data.products ?? [];
+    return products
+      .filter((p) => p.code && (p.product_name || p.product_name_es))
+      .map((p, index) => {
+        const name = p.product_name_es || p.product_name || 'Producto';
+        // Conservative base so OCR-only hits need real overlap / vector to auto_open.
+        const score = Math.max(0.32, 0.62 - index * 0.05);
+        return {
+          barcode: String(p.code),
+          name,
+          brand: p.brands ?? null,
+          imageUrl: p.image_front_url || p.image_url || null,
+          score,
+          sources: [kind === 'food' ? 'ocr_off_search' : 'ocr_obf_search'] as VisualCandidate['sources'],
+        };
+      });
+  } catch {
+    return [];
+  }
+}
+
+/** Deduplicate by barcode keeping the highest score / merged sources. */
+function dedupeByBarcode(hits: VisualCandidate[]): VisualCandidate[] {
+  const map = new Map<string, VisualCandidate>();
+  for (const c of hits) {
+    if (!c.barcode) continue;
+    const prev = map.get(c.barcode);
+    if (!prev) {
+      map.set(c.barcode, { ...c, sources: [...c.sources] });
+      continue;
+    }
+    map.set(c.barcode, {
+      ...prev,
+      name: prev.name || c.name,
+      brand: prev.brand || c.brand,
+      imageUrl: prev.imageUrl || c.imageUrl,
+      score: Math.max(prev.score, c.score),
+      sources: Array.from(new Set([...prev.sources, ...c.sources])) as VisualCandidate['sources'],
+    });
+  }
+  return Array.from(map.values());
 }
 
 /** Text search from OCR tokens against Open Food/Beauty Facts (real catalog only). */
@@ -60,7 +86,7 @@ export async function searchByOcr(ocr: OcrResult): Promise<VisualCandidate[]> {
       searchOpenFacts(query, 'beauty'),
     ]),
   );
-  return batches.flat();
+  return dedupeByBarcode(batches.flat());
 }
 
 type RefRow = {
@@ -162,8 +188,12 @@ export function mergeCandidates(groups: VisualCandidate[][]): VisualCandidate[] 
         map.set(c.barcode, { ...c, sources: [...c.sources] });
         continue;
       }
-      const score = Math.min(0.99, Math.max(prev.score, c.score) + 0.04);
       const sources = Array.from(new Set([...prev.sources, ...c.sources]));
+      // Small multimodal boost only when OCR + vector both hit the same barcode.
+      const hasOcr = sources.some((s) => s.startsWith('ocr_'));
+      const hasVector = sources.includes('pgvector');
+      const boost = hasOcr && hasVector ? 0.05 : 0;
+      const score = Math.min(0.95, Math.max(prev.score, c.score) + boost);
       map.set(c.barcode, {
         ...prev,
         name: prev.name || c.name,

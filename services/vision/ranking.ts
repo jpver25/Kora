@@ -18,7 +18,8 @@ function textOverlapBonus(candidate: VisualCandidate, ocr: OcrResult | null): nu
     if (hay.includes(t)) hits += 1;
   }
   if (!checked) return 0;
-  return Math.min(0.15, (hits / checked) * 0.18);
+  // Cap overlap so a common brand token alone cannot force auto_open.
+  return Math.min(0.1, (hits / checked) * 0.12);
 }
 
 /**

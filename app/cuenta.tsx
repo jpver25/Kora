@@ -128,8 +128,12 @@ export default function CuentaScreen() {
               loading={busy}
               onPress={() =>
                 void run(async () => {
-                  await signUpWithEmail(email, password, displayName);
-                  Alert.alert(strings.auth.loggedIn, strings.auth.migrated);
+                  const data = await signUpWithEmail(email, password, displayName);
+                  if (data.session?.user) {
+                    Alert.alert(strings.auth.loggedIn, strings.auth.migrated);
+                  } else {
+                    Alert.alert(strings.auth.signUp, strings.auth.confirmEmail);
+                  }
                 })
               }
               style={{ marginTop: spacing.sm }}

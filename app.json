@@ -7,7 +7,6 @@
     "icon": "./assets/images/icon.png",
     "scheme": "kora",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "cl.kora.app",
@@ -25,8 +24,7 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "permissions": ["CAMERA", "android.permission.CAMERA"],
-      "edgeToEdgeEnabled": true
+      "permissions": ["CAMERA", "android.permission.CAMERA"]
     },
     "web": {
       "output": "static",
@@ -66,11 +64,6 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    },
-    "extra": {
-      "eas": {
-        "projectId": "replace-with-eas-project-id"
-      }
     }
   }
 }

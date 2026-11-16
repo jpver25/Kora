@@ -58,7 +58,7 @@ npm run test:visual          # fixtures OFF reales + medición honesta
 | [VISUAL_AI.md](./VISUAL_AI.md) | Pipeline visual, mediciones, Expo Go |
 | [IMPLEMENTATION_STATUS.md](./IMPLEMENTATION_STATUS.md) | Listo / blockers |
 | [TESTING.md](./TESTING.md) | Checklist dispositivo |
-| [DATABASE_SETUP.md](./DATABASE_SETUP.md) | Supabase + embeddings |
+| [DATABASE_SETUP.md](./DATABASE_SETUP.md) | Supabase + embeddings + comunidad (001–003) |
 
 ## Estructura
 

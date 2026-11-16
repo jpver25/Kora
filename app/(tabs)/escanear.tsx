@@ -188,6 +188,19 @@ export default function EscanearScreen() {
       }
 
       Alert.alert(strings.scan.visualSoon, result.message, [
+        {
+          text: strings.scan.visual.helpCta,
+          onPress: () => {
+            lockRef.current = false;
+            router.push({
+              pathname: '/comunidad/contribuir',
+              params: {
+                source: 'failed_visual',
+                ocrHint: result.ocr?.fullText ?? '',
+              },
+            });
+          },
+        },
         { text: strings.common.ok, onPress: () => { lockRef.current = false; } },
       ]);
     } catch (err) {

@@ -16,6 +16,7 @@
 | Copy | `constants/strings.es.ts` | Español (Chile) |
 | Datos | `supabase/migrations/` | Postgres + pgvector |
 | Edge | `supabase/functions/visual-identify/` | OCR / embed server-side |
+| Comunidad | `services/communityStore.ts`, `app/comunidad/` | Aportes, correcciones, reseñas, moderación |
 
 ## Navegación
 

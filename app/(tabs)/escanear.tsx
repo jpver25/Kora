@@ -221,7 +221,8 @@ export default function EscanearScreen() {
           unlockSoon(1800);
           return;
         }
-        // auto_open without hydratable product — fall through to help CTA
+        // auto_open without hydratable product — still consumes a free scan slot
+        await recordScanUsage();
         Alert.alert(strings.product.notFoundTitle, strings.product.notFoundBody, [
           {
             text: strings.scan.visual.helpCta,

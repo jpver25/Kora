@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Crypto from 'expo-crypto';
 import { isSupabaseConfigured, supabase } from '@/services/supabase';
 import { getGuestKey } from '@/services/guestId';
 import type {
@@ -139,9 +140,13 @@ export async function submitProductContribution(input: {
     .join('\n');
 
   if (isSupabaseConfigured && supabase) {
+    // Client UUID: guest-only rows are insertable but not selectable under RLS,
+    // so insert().select() would look like a miss and create a duplicate local copy.
+    const remoteId = Crypto.randomUUID();
     const { data, error } = await supabase
       .from('product_contributions')
       .insert({
+        id: remoteId,
         guest_key: guestKey,
         barcode: input.barcode ?? null,
         name: input.name ?? null,
@@ -158,9 +163,11 @@ export async function submitProductContribution(input: {
       .select('id, status')
       .maybeSingle();
 
-    if (!error && data) {
+    if (!error) {
+      const id = data?.id ?? remoteId;
+      const remoteStatus = (data?.status as ModerationStatus | undefined) ?? status;
       await mirrorContribution({
-        id: data.id,
+        id,
         barcode: input.barcode,
         name: input.name,
         brand: input.brand,
@@ -170,20 +177,20 @@ export async function submitProductContribution(input: {
         photoUris: input.photoUris,
         notes,
         source: input.source,
-        status: data.status as ModerationStatus,
+        status: remoteStatus,
         createdAt: now,
         updatedAt: now,
         localOnly: false,
       });
       return {
         ok: true,
-        id: data.id,
-        status: data.status as ModerationStatus,
+        id,
+        status: remoteStatus,
         localOnly: false,
         photosPendingUpload,
       };
     }
-    if (error && !isSchemaMissing(error)) {
+    if (!isSchemaMissing(error)) {
       return { ok: false, reason: error.message };
     }
   }
@@ -220,9 +227,11 @@ export async function submitProductCorrection(input: {
   const status: ModerationStatus = 'submitted';
 
   if (isSupabaseConfigured && supabase) {
+    const remoteId = Crypto.randomUUID();
     const { data, error } = await supabase
       .from('product_corrections')
       .insert({
+        id: remoteId,
         guest_key: guestKey,
         barcode: input.barcode,
         field: input.field,
@@ -233,21 +242,23 @@ export async function submitProductCorrection(input: {
       })
       .select('id, status')
       .maybeSingle();
-    if (!error && data) {
+    if (!error) {
+      const id = data?.id ?? remoteId;
+      const remoteStatus = (data?.status as ModerationStatus | undefined) ?? status;
       await mirrorCorrection({
-        id: data.id,
+        id,
         barcode: input.barcode,
         field: input.field,
         currentValue: input.currentValue,
         proposedValue: input.proposedValue,
         reason: input.reason,
-        status: data.status as ModerationStatus,
+        status: remoteStatus,
         createdAt: now,
         localOnly: false,
       });
-      return { ok: true, id: data.id, status: data.status as ModerationStatus, localOnly: false };
+      return { ok: true, id, status: remoteStatus, localOnly: false };
     }
-    if (error && !isSchemaMissing(error)) return { ok: false, reason: error.message };
+    if (!isSchemaMissing(error)) return { ok: false, reason: error.message };
   }
 
   const row: ProductCorrection = {
@@ -454,9 +465,11 @@ export async function submitBrandImprovementRequest(input: {
   const now = new Date().toISOString();
 
   if (isSupabaseConfigured && supabase) {
+    const remoteId = Crypto.randomUUID();
     const { data, error } = await supabase
       .from('brand_improvement_requests')
       .insert({
+        id: remoteId,
         guest_key: guestKey,
         brand,
         barcode: input.barcode ?? null,
@@ -465,21 +478,23 @@ export async function submitBrandImprovementRequest(input: {
       })
       .select('id, status')
       .maybeSingle();
-    if (!error && data) {
+    if (!error) {
+      const id = data?.id ?? remoteId;
+      const remoteStatus = (data?.status as ModerationStatus | undefined) ?? status;
       bundle.lastBrandRequestAt = now;
       await writeLocal(bundle);
       await mirrorBrand({
-        id: data.id,
+        id,
         brand,
         barcode: input.barcode,
         message,
-        status: data.status as ModerationStatus,
+        status: remoteStatus,
         createdAt: now,
         localOnly: false,
       });
-      return { ok: true, id: data.id, status: data.status as ModerationStatus, localOnly: false };
+      return { ok: true, id, status: remoteStatus, localOnly: false };
     }
-    if (error && !isSchemaMissing(error)) return { ok: false, reason: error.message };
+    if (!isSchemaMissing(error)) return { ok: false, reason: error.message };
   }
 
   const row: BrandImprovementRequest = {

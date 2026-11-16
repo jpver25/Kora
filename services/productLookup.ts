@@ -51,13 +51,28 @@ async function lookupKoraCatalog(barcode: string): Promise<Product | null> {
   }
 }
 
-/** Prefer Kora catalog when Supabase is live; fall back to Open Food/Beauty Facts. */
+/** Prefer Kora catalog when Supabase is live; fall back to Open Food/Beauty Facts; then offline cache. */
 export async function lookupProductByBarcode(barcode: string): Promise<Product | null> {
   const cleaned = barcode.replace(/\D/g, '');
   if (cleaned.length < 6) return null;
 
   const fromKora = await lookupKoraCatalog(cleaned);
-  if (fromKora) return fromKora;
+  if (fromKora) {
+    const { cacheProduct } = await import('@/services/offlineCache');
+    await cacheProduct(fromKora);
+    return fromKora;
+  }
 
-  return lookupOpenFacts(cleaned);
+  const fromOff = await lookupOpenFacts(cleaned);
+  if (fromOff) {
+    const { cacheProduct } = await import('@/services/offlineCache');
+    await cacheProduct(fromOff);
+    return fromOff;
+  }
+
+  const { getCachedProduct, getOfflinePackageProducts } = await import('@/services/offlineCache');
+  const cached = await getCachedProduct(cleaned);
+  if (cached) return cached;
+  const pack = await getOfflinePackageProducts();
+  return pack.find((p) => p.barcode === cleaned) ?? null;
 }

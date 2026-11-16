@@ -27,11 +27,14 @@ En el [SQL Editor](https://supabase.com/dashboard/project/ssdnuypwutvdlpfkylva/s
 
 1. `supabase/migrations/001_initial_schema.sql` — `products`, `scan_events`, `profiles`, extensión `vector`, RLS  
 2. `supabase/migrations/002_visual_embeddings.sql` — `product_reference_images` + RPC `match_product_reference_images`  
-3. `supabase/migrations/003_community.sql` — aportes, correcciones, reseñas cosméticas, votos/reportes, solicitudes a marca + moderación
+3. `supabase/migrations/003_community.sql` — aportes, correcciones, reseñas cosméticas, votos/reportes, solicitudes a marca + moderación  
+4. `supabase/migrations/004_accounts_premium.sql` — perfiles enriquecidos, mirror de entitlements, RPC `request_account_deletion`
 
 Luego recarga el schema cache (o espera unos segundos) y confirma en Perfil: **Supabase conectado**.
 
 Hasta que existan las tablas, la app **guarda aportes en cola local** y muestra un aviso — no inventa productos ni afirma sync remoto.
+
+**Auth:** en Dashboard → Authentication habilita Email y Apple. Premium real requiere RevenueCat + Dev Client (ver `docs/PREMIUM_AND_IAP.md`). **No** se marca Premium activo sin StoreKit/RC.
 
 ### Alternativa CLI (cuando tengas acceso)
 

@@ -8,18 +8,33 @@ import { strings } from '@/constants/strings.es';
 import { setOnboardingCompleted } from '@/services/onboarding';
 import { getActiveVisionProvider } from '@/services/vision/ocr';
 import { checkSupabaseHealth, type SupabaseHealth } from '@/services/supabaseHealth';
+import { getAuthState, type AuthState } from '@/services/auth';
+import { getCachedEntitlements, getScanUsage } from '@/services/entitlements';
+import type { EntitlementSnapshot } from '@/types/entitlements';
 import { colors, radii, spacing, typography } from '@/theme';
 
 export default function PerfilScreen() {
   const version = Constants.expoConfig?.version ?? '1.0.0';
   const visionProvider = getActiveVisionProvider();
   const [health, setHealth] = useState<SupabaseHealth | null>(null);
+  const [auth, setAuth] = useState<AuthState>({ session: null, user: null, isGuest: true });
+  const [snap, setSnap] = useState<EntitlementSnapshot | null>(null);
+  const [remaining, setRemaining] = useState<number | null>(null);
 
   useFocusEffect(
     useCallback(() => {
       let alive = true;
-      checkSupabaseHealth().then((h) => {
-        if (alive) setHealth(h);
+      Promise.all([
+        checkSupabaseHealth(),
+        getAuthState(),
+        getCachedEntitlements(),
+        getScanUsage(),
+      ]).then(([h, a, e, u]) => {
+        if (!alive) return;
+        setHealth(h);
+        setAuth(a);
+        setSnap(e);
+        setRemaining(Number.isFinite(u.remaining) ? u.remaining : null);
       });
       return () => {
         alive = false;
@@ -59,14 +74,37 @@ export default function PerfilScreen() {
       <Text style={styles.sub}>{strings.profile.subtitle}</Text>
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>{strings.profile.guest}</Text>
-        <Text style={styles.cardBody}>{strings.profile.guestHint}</Text>
+        <Text style={styles.cardTitle}>
+          {auth.isGuest
+            ? strings.profile.guest
+            : `${strings.profile.signedInAs}: ${auth.user?.email ?? auth.user?.id}`}
+        </Text>
+        <Text style={styles.cardBody}>
+          {auth.isGuest
+            ? strings.profile.guestHint
+            : snap?.isPremium
+              ? strings.premium.statusPremium
+              : strings.premium.statusFree}
+          {remaining != null ? ` · ${remaining} escaneos gratis hoy` : ''}
+        </Text>
       </View>
 
       <Button
-        label={strings.profile.openPreferences}
+        label={strings.profile.openAccount}
         variant="lime"
+        onPress={() => router.push('/cuenta')}
+      />
+      <Button
+        label={strings.profile.openPremium}
+        variant="secondary"
+        onPress={() => router.push('/premium')}
+        style={{ marginTop: spacing.sm }}
+      />
+      <Button
+        label={strings.profile.openPreferences}
+        variant="ghost"
         onPress={() => router.push('/preferencias')}
+        style={{ marginTop: spacing.sm }}
       />
       <Button
         label={strings.profile.openSearch}

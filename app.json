@@ -11,6 +11,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "cl.kora.app",
+      "usesAppleSignIn": true,
       "infoPlist": {
         "NSCameraUsageDescription": "Kora usa la cámara para escanear códigos de barras y reconocer productos.",
         "NSPhotoLibraryUsageDescription": "Kora puede usar fotos para identificar productos."
@@ -58,7 +59,9 @@
           "photosPermission": "Kora usa tus fotos para aportes comunitarios de empaques.",
           "cameraPermission": "Kora usa la cámara para aportes comunitarios de empaques."
         }
-      ]
+      ],
+      "expo-apple-authentication",
+      "expo-dev-client"
     ],
     "experiments": {
       "typedRoutes": true,

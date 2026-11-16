@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/Button';
 import { strings } from '@/constants/strings.es';
 import { lookupProductByBarcode } from '@/services/productLookup';
 import { addHistoryFromProduct } from '@/services/history';
+import { canPerformScan, recordScanUsage } from '@/services/entitlements';
 import { identifyPackagingFromImage } from '@/services/visualRecognition';
 import { getActiveVisionProvider } from '@/services/vision/ocr';
 import type { ScanMode } from '@/types/product';
@@ -59,12 +60,32 @@ export default function EscanearScreen() {
     }, ms);
   };
 
+  const gateScanOrPromptPremium = async (): Promise<boolean> => {
+    const gate = await canPerformScan();
+    if (gate.allowed) return true;
+    Alert.alert(strings.premium.limitTitle, strings.premium.limitBody, [
+      {
+        text: strings.premium.cta,
+        onPress: () => {
+          lockRef.current = false;
+          router.push('/premium');
+        },
+      },
+      { text: strings.common.ok, onPress: () => { lockRef.current = false; } },
+    ]);
+    return false;
+  };
+
   const handleBarcode = useCallback(
     async (payload: BarcodeScanningResult) => {
       if (!isFocused || mode === 'visual' || manualOpen) return;
       const raw = payload.data?.trim();
       if (!raw || lockRef.current || busy) return;
       lockRef.current = true;
+      if (!(await gateScanOrPromptPremium())) {
+        setBusy(false);
+        return;
+      }
       setBusy(true);
       setStatusText(strings.scan.lookingUp);
       try {
@@ -83,6 +104,7 @@ export default function EscanearScreen() {
           ]);
           return;
         }
+        await recordScanUsage();
         await addHistoryFromProduct(product, 'barcode');
         router.push(`/product/${product.barcode}`);
         unlockSoon(1800);
@@ -103,6 +125,7 @@ export default function EscanearScreen() {
     if (code.length < 6) return;
     setManualOpen(false);
     lockRef.current = true;
+    if (!(await gateScanOrPromptPremium())) return;
     setBusy(true);
     setStatusText(strings.scan.lookingUp);
     try {
@@ -113,6 +136,7 @@ export default function EscanearScreen() {
         ]);
         return;
       }
+      await recordScanUsage();
       await addHistoryFromProduct(product, 'manual');
       router.push(`/product/${product.barcode}`);
       unlockSoon(1800);
@@ -131,6 +155,7 @@ export default function EscanearScreen() {
     if (!isFocused || busy || lockRef.current) return;
     try {
       lockRef.current = true;
+      if (!(await gateScanOrPromptPremium())) return;
       setBusy(true);
       setStatusText(strings.scan.analyzingVisual);
       const photo = await cameraRef.current?.takePictureAsync({
@@ -148,6 +173,7 @@ export default function EscanearScreen() {
 
       if (result.tier === 'auto_open' && result.candidates[0]?.product) {
         const product = result.candidates[0].product;
+        await recordScanUsage();
         await addHistoryFromProduct(product, 'visual');
         router.push(`/product/${product.barcode}`);
         unlockSoon(1800);
@@ -157,6 +183,7 @@ export default function EscanearScreen() {
       if (result.tier === 'auto_open' && result.candidates[0]?.barcode) {
         const product = await lookupProductByBarcode(result.candidates[0].barcode);
         if (product) {
+          await recordScanUsage();
           await addHistoryFromProduct(product, 'visual');
           router.push(`/product/${product.barcode}`);
           unlockSoon(1800);

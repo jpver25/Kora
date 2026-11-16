@@ -17,6 +17,7 @@
 | Datos | `supabase/migrations/` | Postgres + pgvector |
 | Edge | `supabase/functions/visual-identify/` | OCR / embed server-side |
 | Comunidad | `services/communityStore.ts`, `app/comunidad/` | Aportes, correcciones, reseñas, moderación |
+| Auth / Premium | `services/auth.ts`, `purchases.ts`, `entitlements.ts`, `offlineCache.ts` | Guest, Apple/email, RevenueCat, límites free |
 
 ## Navegación
 

@@ -1,57 +1,76 @@
 # Database setup — Supabase
 
-## 1. Proyecto
+## Proyecto enlazado (Kora)
 
-Crea un proyecto Supabase y copia **URL** + **anon key**.
+- **Project ref:** `ssdnuypwutvdlpfkylva`
+- **URL:** `https://ssdnuypwutvdlpfkylva.supabase.co`
 
-## 2. Env
+La app lee `EXPO_PUBLIC_SUPABASE_URL` y `EXPO_PUBLIC_SUPABASE_ANON_KEY` desde un archivo **`.env` local gitignored** (nunca commits ni PRs con el JWT).
 
 ```bash
 cp .env.example .env
+# Completa URL + anon key del dashboard (Settings → API)
+npx expo start -c
 ```
 
-```
-EXPO_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
-EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOi...
-```
+Estado verificado desde este entorno:
 
-Reinicia Metro: `npx expo start -c`
+| Check | Resultado |
+| --- | --- |
+| Auth health (`/auth/v1/health`) | ✅ proyecto vivo |
+| REST `products` | ⚠️ tabla aún no existe (`PGRST205`) |
+| CLI `supabase db push` | ⛔ bloqueado sin `supabase login` / `SUPABASE_ACCESS_TOKEN` ni DB password |
 
-## 3. Migraciones
+## Aplicar migraciones (requerido)
 
-Ejecuta en orden (SQL Editor o `supabase db push`):
+En el [SQL Editor](https://supabase.com/dashboard/project/ssdnuypwutvdlpfkylva/sql) del proyecto, ejecuta **en orden**:
 
-1. `supabase/migrations/001_initial_schema.sql` — products, scan_events, profiles, vector  
+1. `supabase/migrations/001_initial_schema.sql` — `products`, `scan_events`, `profiles`, extensión `vector`, RLS  
 2. `supabase/migrations/002_visual_embeddings.sql` — `product_reference_images` + RPC `match_product_reference_images`
 
-Después de ingerir referencias, opcionalmente crea índice IVFFlat/HNSW (comentado en `002`).
+Luego recarga el schema cache (o espera unos segundos) y confirma en Perfil: **Supabase conectado**.
 
-## 4. Edge Function (visión)
-
-```bash
-supabase functions deploy visual-identify
-supabase secrets set OPENAI_API_KEY=sk-...
-```
-
-La app llama `{SUPABASE_URL}/functions/v1/visual-identify` automáticamente cuando hay URL + anon key.
-
-## 5. Ingestar imagen de referencia
+### Alternativa CLI (cuando tengas acceso)
 
 ```bash
-# Genera payload interim desde OFF (no inventa productos)
-npm run ingest:reference -- 3017620422003
+npx supabase login
+npx supabase link --project-ref ssdnuypwutvdlpfkylva
+npx supabase db push
 ```
 
-Luego upsert a `product_reference_images` (vía `ingestReferenceImage` con Supabase configurado, o SQL).
+O con token CI:
 
-## 6. Verificar
+```bash
+export SUPABASE_ACCESS_TOKEN=...   # no lo commits
+npx supabase link --project-ref ssdnuypwutvdlpfkylva
+npx supabase db push
+```
 
-- Perfil: “Supabase conectado”  
-- RPC `match_product_reference_images` responde  
-- Visual search puede devolver hits `pgvector` además de OFF
+## Edge Function (visión, opcional)
 
-## Blockers
+```bash
+npx supabase functions deploy visual-identify --project-ref ssdnuypwutvdlpfkylva
+npx supabase secrets set OPENAI_API_KEY=... --project-ref ssdnuypwutvdlpfkylva
+```
 
-- Sin URL/anon → solo OFF; cliente Supabase `null`  
-- Sin `OPENAI_API_KEY` en la function → OCR cloud no corre  
-- Service role **nunca** en la app
+## Seed de prueba (opcional)
+
+```sql
+insert into public.products (barcode, name, brand, category, nutriscore_grade, nutriments)
+values (
+  '7809999999999',
+  'Yogur ejemplo Kora',
+  'Kora Demo',
+  'food',
+  'b',
+  '{"sugars_100g": 8, "salt_100g": 0.1, "proteins_100g": 4}'::jsonb
+);
+```
+
+Nutrimentos aceptan claves OFF (`sugars_100g`) o camelCase (`sugars100g`); el cliente las normaliza.
+
+## Blockers actuales
+
+1. **Migraciones no aplicadas** en el proyecto (anon funciona; schema vacío).  
+2. **Sin service role / CLI login** en este agente → no se pudo `db push` automáticamente.  
+3. Service role **nunca** va en la app ni en git.

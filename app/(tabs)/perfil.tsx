@@ -1,17 +1,56 @@
+import { useCallback, useState } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 import Constants from 'expo-constants';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Screen } from '@/components/ui/Screen';
 import { Button } from '@/components/ui/Button';
 import { strings } from '@/constants/strings.es';
 import { setOnboardingCompleted } from '@/services/onboarding';
-import { isSupabaseConfigured } from '@/services/supabase';
 import { getActiveVisionProvider } from '@/services/vision/ocr';
+import { checkSupabaseHealth, type SupabaseHealth } from '@/services/supabaseHealth';
 import { colors, radii, spacing, typography } from '@/theme';
 
 export default function PerfilScreen() {
   const version = Constants.expoConfig?.version ?? '1.0.0';
   const visionProvider = getActiveVisionProvider();
+  const [health, setHealth] = useState<SupabaseHealth | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
+      checkSupabaseHealth().then((h) => {
+        if (alive) setHealth(h);
+      });
+      return () => {
+        alive = false;
+      };
+    }, []),
+  );
+
+  const supabaseCard = (() => {
+    if (!health || health.status === 'missing_env') {
+      return {
+        warn: true,
+        title: strings.profile.supabaseMissing,
+        body: strings.profile.supabaseHint,
+      };
+    }
+    if (health.status === 'live') {
+      return { warn: false, title: strings.profile.supabaseLive, body: 'Proyecto enlazado y schema disponible.' };
+    }
+    if (health.status === 'live_no_schema') {
+      return {
+        warn: true,
+        title: strings.profile.supabaseTablesMissing,
+        body: strings.profile.supabaseTablesHint,
+      };
+    }
+    return {
+      warn: true,
+      title: strings.profile.supabaseMissing,
+      body: health.message,
+    };
+  })();
 
   return (
     <Screen scroll>
@@ -24,6 +63,24 @@ export default function PerfilScreen() {
         <Text style={styles.cardBody}>{strings.profile.guestHint}</Text>
       </View>
 
+      <Button
+        label={strings.profile.openPreferences}
+        variant="lime"
+        onPress={() => router.push('/preferencias')}
+      />
+      <Button
+        label={strings.profile.openSearch}
+        variant="ghost"
+        onPress={() => router.push('/buscar')}
+        style={{ marginTop: spacing.sm }}
+      />
+      <Button
+        label={strings.profile.openFavorites}
+        variant="ghost"
+        onPress={() => router.push({ pathname: '/(tabs)/historial', params: { favorites: '1' } })}
+        style={{ marginTop: spacing.sm, marginBottom: spacing.md }}
+      />
+
       <View style={styles.card}>
         <Text style={styles.rowLabel}>{strings.profile.language}</Text>
         <Text style={styles.rowValue}>{strings.profile.languageValue}</Text>
@@ -34,13 +91,9 @@ export default function PerfilScreen() {
         <Text style={styles.rowValue}>{version}</Text>
       </View>
 
-      <View style={[styles.card, !isSupabaseConfigured && styles.warn]}>
-        <Text style={styles.cardTitle}>
-          {isSupabaseConfigured ? 'Supabase conectado' : strings.profile.supabaseMissing}
-        </Text>
-        {!isSupabaseConfigured ? (
-          <Text style={styles.cardBody}>{strings.profile.supabaseHint}</Text>
-        ) : null}
+      <View style={[styles.card, supabaseCard.warn && styles.warn]}>
+        <Text style={styles.cardTitle}>{supabaseCard.title}</Text>
+        <Text style={styles.cardBody}>{supabaseCard.body}</Text>
       </View>
 
       <View style={[styles.card, visionProvider === 'none' && styles.warn]}>

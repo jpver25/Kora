@@ -1,31 +1,85 @@
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { router } from 'expo-router';
 import { Screen } from '@/components/ui/Screen';
+import { ProductCard } from '@/components/product/ProductCard';
 import { strings } from '@/constants/strings.es';
+import {
+  EXPLORE_CATEGORIES,
+  fetchCategoryRanking,
+  type ExploreCategory,
+} from '@/services/catalogSearch';
+import type { Product } from '@/types/product';
 import { colors, radii, spacing, typography } from '@/theme';
 
 export default function ExplorarScreen() {
+  const [active, setActive] = useState<ExploreCategory | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [ranking, setRanking] = useState<Product[]>([]);
+
+  const openCategory = async (cat: ExploreCategory) => {
+    setActive(cat);
+    setLoading(true);
+    try {
+      const list = await fetchCategoryRanking(cat);
+      setRanking(list);
+    } catch {
+      setRanking([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <Screen scroll>
       <Text style={styles.brand}>{strings.appName}</Text>
       <Text style={styles.title}>{strings.explore.title}</Text>
       <Text style={styles.sub}>{strings.explore.subtitle}</Text>
 
-      <Image
-        source={require('@/assets/images/brand/onboarding-analisis-v2.png')}
-        style={styles.banner}
-        resizeMode="cover"
-      />
+      <Pressable style={styles.searchBanner} onPress={() => router.push('/buscar')}>
+        <Text style={styles.searchBannerText}>{strings.home.search}</Text>
+      </Pressable>
 
       <View style={styles.grid}>
-        {strings.explore.categories.map((cat) => (
-          <View key={cat.id} style={styles.tile}>
+        {EXPLORE_CATEGORIES.map((cat) => (
+          <Pressable
+            key={cat.id}
+            onPress={() => void openCategory(cat)}
+            style={[styles.tile, active?.id === cat.id && styles.tileActive]}>
             <Text style={styles.tileTitle}>{cat.title}</Text>
             <Text style={styles.tileHint}>{cat.hint}</Text>
-          </View>
+            <Text style={styles.tileCta}>{strings.explore.openCategory}</Text>
+          </Pressable>
         ))}
       </View>
 
-      <Text style={styles.note}>{strings.explore.coming}</Text>
+      {active ? (
+        <>
+          <Text style={styles.section}>
+            {strings.explore.rankings}: {active.title}
+          </Text>
+          {loading ? (
+            <View style={styles.loading}>
+              <ActivityIndicator color={colors.primary} />
+              <Text style={styles.sub}>{strings.explore.loading}</Text>
+            </View>
+          ) : ranking.length === 0 ? (
+            <Text style={styles.sub}>{strings.explore.empty}</Text>
+          ) : (
+            ranking.map((p) => (
+              <ProductCard
+                key={p.barcode}
+                name={p.name}
+                brand={p.brand}
+                imageUrl={p.imageUrl}
+                scoreValue={p.score.value}
+                scoreBand={p.score.band}
+                onPress={() => router.push(`/product/${p.barcode}`)}
+              />
+            ))
+          )}
+        </>
+      ) : null}
     </Screen>
   );
 }
@@ -34,13 +88,13 @@ const styles = StyleSheet.create({
   brand: { ...typography.label, color: colors.secondary },
   title: { ...typography.title, color: colors.primary, marginTop: spacing.xs },
   sub: { ...typography.body, color: colors.muted, marginBottom: spacing.md },
-  banner: {
-    width: '100%',
-    height: 200,
-    borderRadius: radii.lg,
+  searchBanner: {
+    padding: spacing.md,
+    borderRadius: radii.md,
+    backgroundColor: colors.primary,
     marginBottom: spacing.lg,
-    backgroundColor: colors.surface,
   },
+  searchBannerText: { ...typography.bodyStrong, color: colors.white, textAlign: 'center' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
   tile: {
     width: '47%',
@@ -51,7 +105,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
+  tileActive: { borderColor: colors.primary },
   tileTitle: { ...typography.bodyStrong, color: colors.ink },
   tileHint: { ...typography.caption, color: colors.muted, marginTop: 4 },
-  note: { ...typography.caption, color: colors.muted, marginTop: spacing.lg },
+  tileCta: { ...typography.caption, color: colors.secondary, marginTop: spacing.sm },
+  section: { ...typography.subtitle, color: colors.ink, marginTop: spacing.lg, marginBottom: spacing.sm },
+  loading: { alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.lg },
 });

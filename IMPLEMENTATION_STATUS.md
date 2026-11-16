@@ -37,7 +37,7 @@
 
 ## External blockers (still)
 
-1. **Supabase SQL 001→005** not applied on project `ssdnuypwutvdlpfkylva`  
+1. **Supabase SQL 001→006** not applied on project `ssdnuypwutvdlpfkylva`  
 2. **Apple** Sign In provider + App Store Connect + EAS project id  
 3. **RevenueCat** API key + products + Dev Client for real IAP  
 4. **OpenAI** / Edge `visual-identify` for production vision  

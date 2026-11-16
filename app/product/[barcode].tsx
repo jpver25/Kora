@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -8,7 +8,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Stack, useLocalSearchParams, router } from 'expo-router';
+import { Stack, useLocalSearchParams, router, useFocusEffect } from 'expo-router';
 import { ScoreRing } from '@/components/ui/ScoreRing';
 import { Button } from '@/components/ui/Button';
 import { ProductCard } from '@/components/product/ProductCard';
@@ -37,6 +37,25 @@ export default function ProductScreen() {
   const [alternatives, setAlternatives] = useState<Product[]>([]);
   const [altLoading, setAltLoading] = useState(false);
   const [reviews, setReviews] = useState<CosmeticReview[]>([]);
+
+  const refreshReviews = useCallback(async (code: string, category?: Product['category']) => {
+    if (category && category !== 'beauty') {
+      setReviews([]);
+      return;
+    }
+    try {
+      setReviews(await listCosmeticReviews(code));
+    } catch {
+      // keep prior
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!barcode || !product || product.category !== 'beauty') return;
+      void refreshReviews(String(barcode), product.category);
+    }, [barcode, product, refreshReviews]),
+  );
 
   useEffect(() => {
     let alive = true;
@@ -285,7 +304,7 @@ export default function ProductScreen() {
                 <Text style={styles.sectionTitle}>{strings.product.reviewsTitle}</Text>
                 <Text style={styles.line}>{strings.product.reviewsScientificNote}</Text>
                 {reviews.length === 0 ? (
-                  <Text style={styles.line}>{strings.community.emptyActivity}</Text>
+                  <Text style={styles.line}>{strings.community.emptyReviews}</Text>
                 ) : (
                   reviews.map((r) => (
                     <View key={r.id} style={styles.reviewCard}>

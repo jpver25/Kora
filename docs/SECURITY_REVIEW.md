@@ -16,7 +16,7 @@
 | `products` | public read OK; writes service/admin only |
 | `product_reference_images` | public **read**; **no** anon insert/update (005 drops open write policies) |
 | `scan_events` / `profiles` | own-row only |
-| `product_contributions`, corrections, reviews | insert OK for growth; tighten with auth later |
+| `product_contributions`, corrections, reviews | insert **only** `draft`/`submitted` (006); no anon self-approve; selects own/public reviews |
 | `user_entitlements` | select own; **never** trust client to set Premium |
 | Edge `visual-identify` | verify JWT; OpenAI key only in function secrets |
 

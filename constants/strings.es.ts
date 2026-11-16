@@ -170,6 +170,9 @@ export const strings = {
     },
     myActivity: 'Mis aportes',
     emptyActivity: 'Aún no has enviado aportes.',
+    emptyReviews: 'Aún no hay reseñas para este producto.',
+    photosPending:
+      'Metadatos enviados; las fotos locales aún no se suben a Storage (quedan en el dispositivo).',
     message: 'Mensaje',
   },
 

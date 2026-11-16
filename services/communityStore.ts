@@ -11,6 +11,8 @@ import type {
 } from '@/types/community';
 
 const LOCAL_KEY = 'kora.community.local.v1';
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type LocalBundle = {
   contributions: ProductContribution[];
@@ -49,6 +51,10 @@ function newId(prefix: string) {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function isRemoteUuid(id: string): boolean {
+  return UUID_RE.test(id);
+}
+
 function isSchemaMissing(error: { message?: string; code?: string } | null): boolean {
   if (!error) return false;
   const msg = error.message ?? '';
@@ -60,9 +66,50 @@ function isSchemaMissing(error: { message?: string; code?: string } | null): boo
   );
 }
 
+/** Only http(s) URIs are useful remotely; file:// paths stay on-device. */
+function splitPhotoUris(photoUris: string[]): { remote: string[]; local: string[] } {
+  const remote: string[] = [];
+  const local: string[] = [];
+  for (const uri of photoUris) {
+    if (/^https?:\/\//i.test(uri)) remote.push(uri);
+    else local.push(uri);
+  }
+  return { remote, local };
+}
+
 export type CommunitySubmitResult =
-  | { ok: true; id: string; status: ModerationStatus; localOnly: boolean }
+  | {
+      ok: true;
+      id: string;
+      status: ModerationStatus;
+      localOnly: boolean;
+      photosPendingUpload?: boolean;
+    }
   | { ok: false; reason: string };
+
+async function mirrorContribution(row: ProductContribution) {
+  const bundle = await readLocal();
+  bundle.contributions = [row, ...bundle.contributions.filter((c) => c.id !== row.id)].slice(0, 100);
+  await writeLocal(bundle);
+}
+
+async function mirrorCorrection(row: ProductCorrection) {
+  const bundle = await readLocal();
+  bundle.corrections = [row, ...bundle.corrections.filter((c) => c.id !== row.id)].slice(0, 100);
+  await writeLocal(bundle);
+}
+
+async function mirrorReview(row: CosmeticReview) {
+  const bundle = await readLocal();
+  bundle.reviews = [row, ...bundle.reviews.filter((r) => r.id !== row.id)].slice(0, 200);
+  await writeLocal(bundle);
+}
+
+async function mirrorBrand(row: BrandImprovementRequest) {
+  const bundle = await readLocal();
+  bundle.brandRequests = [row, ...bundle.brandRequests.filter((b) => b.id !== row.id)].slice(0, 50);
+  await writeLocal(bundle);
+}
 
 /** Persist contribution: Supabase when schema exists, else local draft/submitted queue. */
 export async function submitProductContribution(input: {
@@ -80,6 +127,16 @@ export async function submitProductContribution(input: {
   const guestKey = await getGuestKey();
   const status: ModerationStatus = input.asDraft ? 'draft' : 'submitted';
   const now = new Date().toISOString();
+  const { remote, local } = splitPhotoUris(input.photoUris);
+  const photosPendingUpload = local.length > 0;
+  const notes = [
+    input.notes?.trim(),
+    photosPendingUpload
+      ? `[Kora] ${local.length} foto(s) quedan en el dispositivo (sin Storage aún).`
+      : null,
+  ]
+    .filter(Boolean)
+    .join('\n');
 
   if (isSupabaseConfigured && supabase) {
     const { data, error } = await supabase
@@ -92,8 +149,9 @@ export async function submitProductContribution(input: {
         category: input.category ?? 'unknown',
         ocr_text: input.ocrText ?? null,
         ocr_confirmed: input.ocrConfirmed,
-        photo_uris: input.photoUris,
-        notes: input.notes ?? null,
+        // Never send file:// paths as if they were remote assets.
+        photo_uris: remote,
+        notes: notes || null,
         source: input.source,
         status,
       })
@@ -101,7 +159,29 @@ export async function submitProductContribution(input: {
       .maybeSingle();
 
     if (!error && data) {
-      return { ok: true, id: data.id, status: data.status as ModerationStatus, localOnly: false };
+      await mirrorContribution({
+        id: data.id,
+        barcode: input.barcode,
+        name: input.name,
+        brand: input.brand,
+        category: input.category ?? 'unknown',
+        ocrText: input.ocrText,
+        ocrConfirmed: input.ocrConfirmed,
+        photoUris: input.photoUris,
+        notes,
+        source: input.source,
+        status: data.status as ModerationStatus,
+        createdAt: now,
+        updatedAt: now,
+        localOnly: false,
+      });
+      return {
+        ok: true,
+        id: data.id,
+        status: data.status as ModerationStatus,
+        localOnly: false,
+        photosPendingUpload,
+      };
     }
     if (error && !isSchemaMissing(error)) {
       return { ok: false, reason: error.message };
@@ -117,17 +197,15 @@ export async function submitProductContribution(input: {
     ocrText: input.ocrText,
     ocrConfirmed: input.ocrConfirmed,
     photoUris: input.photoUris,
-    notes: input.notes,
+    notes,
     source: input.source,
     status,
     createdAt: now,
     updatedAt: now,
     localOnly: true,
   };
-  const bundle = await readLocal();
-  bundle.contributions = [row, ...bundle.contributions].slice(0, 100);
-  await writeLocal(bundle);
-  return { ok: true, id: row.id, status, localOnly: true };
+  await mirrorContribution(row);
+  return { ok: true, id: row.id, status, localOnly: true, photosPendingUpload };
 }
 
 export async function submitProductCorrection(input: {
@@ -156,6 +234,17 @@ export async function submitProductCorrection(input: {
       .select('id, status')
       .maybeSingle();
     if (!error && data) {
+      await mirrorCorrection({
+        id: data.id,
+        barcode: input.barcode,
+        field: input.field,
+        currentValue: input.currentValue,
+        proposedValue: input.proposedValue,
+        reason: input.reason,
+        status: data.status as ModerationStatus,
+        createdAt: now,
+        localOnly: false,
+      });
       return { ok: true, id: data.id, status: data.status as ModerationStatus, localOnly: false };
     }
     if (error && !isSchemaMissing(error)) return { ok: false, reason: error.message };
@@ -172,9 +261,7 @@ export async function submitProductCorrection(input: {
     createdAt: now,
     localOnly: true,
   };
-  const bundle = await readLocal();
-  bundle.corrections = [row, ...bundle.corrections].slice(0, 100);
-  await writeLocal(bundle);
+  await mirrorCorrection(row);
   return { ok: true, id: row.id, status, localOnly: true };
 }
 
@@ -207,6 +294,17 @@ export async function submitCosmeticReview(input: {
       .select('id, status')
       .maybeSingle();
     if (!error && data) {
+      await mirrorReview({
+        id: data.id,
+        barcode: input.barcode,
+        stars,
+        body,
+        helpfulCount: 0,
+        reportCount: 0,
+        status: data.status as ModerationStatus,
+        createdAt: now,
+        localOnly: false,
+      });
       return { ok: true, id: data.id, status: data.status as ModerationStatus, localOnly: false };
     }
     if (error && !isSchemaMissing(error)) return { ok: false, reason: error.message };
@@ -223,9 +321,7 @@ export async function submitCosmeticReview(input: {
     createdAt: now,
     localOnly: true,
   };
-  const bundle = await readLocal();
-  bundle.reviews = [row, ...bundle.reviews].slice(0, 200);
-  await writeLocal(bundle);
+  await mirrorReview(row);
   return { ok: true, id: row.id, status, localOnly: true };
 }
 
@@ -267,12 +363,18 @@ export async function voteReviewHelpful(reviewId: string): Promise<CommunitySubm
     return { ok: false, reason: 'already_voted' };
   }
 
-  if (isSupabaseConfigured && supabase) {
+  // Local queue ids are not UUIDs — stay on the local path.
+  if (isRemoteUuid(reviewId) && isSupabaseConfigured && supabase) {
     const { data, error } = await supabase.rpc('vote_cosmetic_review_helpful', {
       p_review_id: reviewId,
       p_guest_key: guestKey,
     });
     if (!error) {
+      if (data !== true) {
+        bundle.votedReviewIds.push(reviewId);
+        await writeLocal(bundle);
+        return { ok: false, reason: 'already_voted' };
+      }
       bundle.votedReviewIds.push(reviewId);
       await writeLocal(bundle);
       return { ok: true, id: reviewId, status: 'submitted', localOnly: false };
@@ -295,16 +397,23 @@ export async function reportReview(reviewId: string, reason?: string): Promise<C
     return { ok: false, reason: 'already_reported' };
   }
 
-  if (isSupabaseConfigured && supabase) {
-    const { error } = await supabase.from('cosmetic_review_reports').insert({
-      review_id: reviewId,
-      guest_key: guestKey,
-      reason: reason ?? null,
+  if (isRemoteUuid(reviewId) && isSupabaseConfigured && supabase) {
+    const { data, error } = await supabase.rpc('report_cosmetic_review', {
+      p_review_id: reviewId,
+      p_guest_key: guestKey,
+      p_reason: reason ?? null,
     });
     if (!error) {
+      if (data !== true) {
+        bundle.reportedReviewIds.push(reviewId);
+        await writeLocal(bundle);
+        return { ok: false, reason: 'already_reported' };
+      }
       bundle.reportedReviewIds.push(reviewId);
       bundle.reviews = bundle.reviews.map((r) =>
-        r.id === reviewId ? { ...r, reportCount: r.reportCount + 1 } : r,
+        r.id === reviewId
+          ? { ...r, reportCount: r.reportCount + 1, status: 'under_review' }
+          : r,
       );
       await writeLocal(bundle);
       return { ok: true, id: reviewId, status: 'under_review', localOnly: false };
@@ -359,6 +468,15 @@ export async function submitBrandImprovementRequest(input: {
     if (!error && data) {
       bundle.lastBrandRequestAt = now;
       await writeLocal(bundle);
+      await mirrorBrand({
+        id: data.id,
+        brand,
+        barcode: input.barcode,
+        message,
+        status: data.status as ModerationStatus,
+        createdAt: now,
+        localOnly: false,
+      });
       return { ok: true, id: data.id, status: data.status as ModerationStatus, localOnly: false };
     }
     if (error && !isSchemaMissing(error)) return { ok: false, reason: error.message };
@@ -385,6 +503,7 @@ export async function listMyCommunityActivity(): Promise<{
   reviews: CosmeticReview[];
   brandRequests: BrandImprovementRequest[];
 }> {
+  // Activity is the local mirror of both offline queue and successful remote submits.
   const bundle = await readLocal();
   return {
     contributions: bundle.contributions,

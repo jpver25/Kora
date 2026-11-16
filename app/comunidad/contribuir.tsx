@@ -103,6 +103,7 @@ export default function ContribuirScreen() {
       const msg = [
         asDraft ? strings.community.draftSaved : strings.community.submitted,
         result.localOnly ? strings.community.localQueue : null,
+        result.photosPendingUpload ? strings.community.photosPending : null,
         `${strings.community.status}: ${strings.community.statuses[result.status]}`,
       ]
         .filter(Boolean)

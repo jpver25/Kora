@@ -26,7 +26,13 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: strings.tabs.home,
-          tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons
+              name="home-outline"
+              size={size}
+              color={typeof color === 'string' ? color : colors.muted}
+            />
+          ),
         }}
       />
       <Tabs.Screen
@@ -34,7 +40,11 @@ export default function TabsLayout() {
         options={{
           title: strings.tabs.explore,
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="compass-outline" size={size} color={color} />
+            <Ionicons
+              name="compass-outline"
+              size={size}
+              color={typeof color === 'string' ? color : colors.muted}
+            />
           ),
         }}
       />
@@ -50,7 +60,13 @@ export default function TabsLayout() {
         name="historial"
         options={{
           title: strings.tabs.history,
-          tabBarIcon: ({ color, size }) => <Ionicons name="time-outline" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons
+              name="time-outline"
+              size={size}
+              color={typeof color === 'string' ? color : colors.muted}
+            />
+          ),
         }}
       />
       <Tabs.Screen
@@ -58,7 +74,11 @@ export default function TabsLayout() {
         options={{
           title: strings.tabs.profile,
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-outline" size={size} color={color} />
+            <Ionicons
+              name="person-outline"
+              size={size}
+              color={typeof color === 'string' ? color : colors.muted}
+            />
           ),
         }}
       />

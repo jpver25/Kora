@@ -469,7 +469,7 @@ const styles = StyleSheet.create({
   permTitle: { ...typography.title, color: colors.primary },
   permBody: { ...typography.body, color: colors.muted, marginBottom: spacing.md },
   shade: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.25)',
   },
   ui: { flex: 1, justifyContent: 'space-between' },

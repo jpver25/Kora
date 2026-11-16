@@ -6,15 +6,26 @@ Escáner inteligente de alimentos y cosméticos para Chile.
 Stack: **React Native · Expo · TypeScript · Expo Router · Expo Camera · Supabase · pgvector**.  
 UI en **español (Chile)**. Flujo principal: **Expo Go en iPhone**.
 
-## Arranque rápido (Expo Go)
+## Arranque rápido (Expo Go — iPhone end-to-end)
 
 ```bash
 npm install
-cp .env.example .env   # opcional: Supabase + visión
+cp .env.example .env   # opcional: Supabase + visión (nunca commits secrets)
+npm run typecheck
+npm run test:unit
 npx expo start
+# o con túnel si la red local falla:
+npx expo start --tunnel
 ```
 
-Abre **Expo Go** en el iPhone y escanea el QR.
+1. Abre **Expo Go** en el iPhone y escanea el QR de Metro.  
+2. Completa onboarding → tabs (Escanear destacado).  
+3. Escanea un EAN real o **Ingresar código** (`3017620422003`).  
+4. Revisa ficha, historial, favoritos, Preferencias.  
+5. Perfil → Cuenta (invitado / email) y Premium (estado gratis en Expo Go).  
+6. Visual sin OpenAI/Edge → mensaje honesto, sin productos inventados.  
+
+Detalle de checklist: [TESTING.md](./TESTING.md)
 
 ### Escanear
 
@@ -70,6 +81,8 @@ npm run test:visual          # fixtures OFF reales + medición honesta
 | [TESTING.md](./TESTING.md) | Checklist dispositivo |
 | [DATABASE_SETUP.md](./DATABASE_SETUP.md) | Supabase SQL 001–004 |
 | [docs/PREMIUM_AND_IAP.md](./docs/PREMIUM_AND_IAP.md) | Free/Premium, Expo Go vs Dev Client |
+| [docs/SECURITY_REVIEW.md](./docs/SECURITY_REVIEW.md) | Secrets + RLS checklist |
+| [docs/APP_STORE_CHECKLIST.md](./docs/APP_STORE_CHECKLIST.md) | Privacy labels, deletion, IAP |
 
 ## Estructura
 

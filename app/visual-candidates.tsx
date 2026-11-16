@@ -1,4 +1,4 @@
-import { FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/Button';
@@ -28,6 +28,17 @@ export default function VisualCandidatesScreen() {
   const onPick = async (item: ParamCandidate) => {
     const product = await lookupProductByBarcode(item.barcode);
     if (!product) {
+      Alert.alert(strings.product.notFoundTitle, strings.product.notFoundBody, [
+        {
+          text: strings.scan.visual.helpCta,
+          onPress: () =>
+            router.push({
+              pathname: '/comunidad/contribuir',
+              params: { source: 'failed_visual', barcode: item.barcode },
+            }),
+        },
+        { text: strings.common.ok },
+      ]);
       return;
     }
     await addHistoryFromProduct(product, 'visual');

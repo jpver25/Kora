@@ -107,7 +107,7 @@ export function evaluateCompatibility(
   }
 
   if (prefs.no_palm_oil) {
-    if (/\bpalm\b|\bacite de palma\b|\bhuile de palme\b/.test(text)) {
+    if (/\bpalm\b|\baceite de palma\b|\bhuile de palme\b/.test(text)) {
       warnings.push({
         id: 'no_palm_oil',
         severity: 'warn',

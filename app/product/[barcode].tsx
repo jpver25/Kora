@@ -52,13 +52,17 @@ export default function ProductScreen() {
         setProduct(found);
         setError(!found);
         if (found) {
-          const [prefs, favored] = await Promise.all([
-            getDietaryPreferences(),
-            isFavorite(found.barcode),
-          ]);
-          if (!alive) return;
-          setFav(favored);
-          setWarnings(evaluateCompatibility(found, prefs));
+          try {
+            const [prefs, favored] = await Promise.all([
+              getDietaryPreferences(),
+              isFavorite(found.barcode),
+            ]);
+            if (!alive) return;
+            setFav(favored);
+            setWarnings(evaluateCompatibility(found, prefs));
+          } catch {
+            // Preferences/favorites optional — keep product sheet visible.
+          }
           setAltLoading(true);
           try {
             const snap = await getCachedEntitlements();
@@ -71,14 +75,21 @@ export default function ProductScreen() {
               },
             );
             const [alts, revs] = await Promise.all([
-              findHealthierAlternatives(found),
-              found.category === 'beauty' ? listCosmeticReviews(found.barcode) : Promise.resolve([]),
+              findHealthierAlternatives(found).catch(() => [] as Product[]),
+              found.category === 'beauty'
+                ? listCosmeticReviews(found.barcode).catch(() => [] as CosmeticReview[])
+                : Promise.resolve([] as CosmeticReview[]),
             ]);
             if (alive) {
               setAlternatives(
                 Number.isFinite(limit) ? alts.slice(0, Math.max(0, limit)) : alts,
               );
               setReviews(revs);
+            }
+          } catch {
+            if (alive) {
+              setAlternatives([]);
+              setReviews([]);
             }
           } finally {
             if (alive) setAltLoading(false);

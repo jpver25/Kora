@@ -21,10 +21,16 @@ import { strings } from '@/constants/strings.es';
 import { lookupProductByBarcode } from '@/services/productLookup';
 import { addHistoryFromProduct } from '@/services/history';
 import { canPerformScan, recordScanUsage } from '@/services/entitlements';
-import { identifyPackagingFromImage } from '@/services/visualRecognition';
+import {
+  cancelStaleVisualRecognition,
+  identifyPackagingFromImage,
+} from '@/services/visualRecognition';
 import { getActiveVisionProvider } from '@/services/vision/ocr';
+import { isPlausibleBarcode, normalizeBarcode } from '@/services/barcode';
 import type { ScanMode } from '@/types/product';
 import { colors, radii, spacing, typography } from '@/theme';
+
+const BARCODE_DEBOUNCE_MS = 900;
 
 export default function EscanearScreen() {
   const isFocused = useIsFocused();
@@ -32,33 +38,46 @@ export default function EscanearScreen() {
   const [mode, setMode] = useState<ScanMode>('auto');
   const [torch, setTorch] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [locked, setLocked] = useState(false);
   const [statusText, setStatusText] = useState<string | null>(null);
   const [manualOpen, setManualOpen] = useState(false);
   const [manualCode, setManualCode] = useState('');
   const lockRef = useRef(false);
+  const lastScanRef = useRef<{ code: string; at: number }>({ code: '', at: 0 });
+  const unlockTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cameraRef = useRef<CameraView>(null);
   const visionProvider = getActiveVisionProvider();
+
+  const setScanLock = useCallback((value: boolean) => {
+    lockRef.current = value;
+    setLocked(value);
+  }, []);
+
+  const unlockSoon = useCallback(
+    (ms = 1200) => {
+      if (unlockTimerRef.current) clearTimeout(unlockTimerRef.current);
+      unlockTimerRef.current = setTimeout(() => {
+        setScanLock(false);
+      }, ms);
+    },
+    [setScanLock],
+  );
 
   useEffect(() => {
     if (!isFocused) {
       setTorch(false);
       setBusy(false);
       setStatusText(null);
-      // Keep lock briefly after leaving so remount does not instantly re-fire.
-      lockRef.current = true;
-      const t = setTimeout(() => {
-        lockRef.current = false;
-      }, 600);
-      return () => clearTimeout(t);
+      cancelStaleVisualRecognition();
+      if (unlockTimerRef.current) clearTimeout(unlockTimerRef.current);
+      // Release lock on blur so remount does not stay stuck disabled.
+      setScanLock(false);
+      return undefined;
     }
+    // Ensure scanning re-enables when tab gains focus.
+    setScanLock(false);
     return undefined;
-  }, [isFocused]);
-
-  const unlockSoon = (ms = 1200) => {
-    setTimeout(() => {
-      lockRef.current = false;
-    }, ms);
-  };
+  }, [isFocused, setScanLock]);
 
   const gateScanOrPromptPremium = async (): Promise<boolean> => {
     const gate = await canPerformScan();
@@ -67,11 +86,11 @@ export default function EscanearScreen() {
       {
         text: strings.premium.cta,
         onPress: () => {
-          lockRef.current = false;
+          setScanLock(false);
           router.push('/premium');
         },
       },
-      { text: strings.common.ok, onPress: () => { lockRef.current = false; } },
+      { text: strings.common.ok, onPress: () => { setScanLock(false); } },
     ]);
     return false;
   };
@@ -80,8 +99,17 @@ export default function EscanearScreen() {
     async (payload: BarcodeScanningResult) => {
       if (!isFocused || mode === 'visual' || manualOpen) return;
       const raw = payload.data?.trim();
-      if (!raw || lockRef.current || busy) return;
-      lockRef.current = true;
+      if (!raw || !isPlausibleBarcode(raw) || lockRef.current || busy) return;
+      const code = normalizeBarcode(raw);
+      const now = Date.now();
+      if (
+        lastScanRef.current.code === code &&
+        now - lastScanRef.current.at < BARCODE_DEBOUNCE_MS
+      ) {
+        return;
+      }
+      lastScanRef.current = { code, at: now };
+      setScanLock(true);
       if (!(await gateScanOrPromptPremium())) {
         setBusy(false);
         return;
@@ -90,7 +118,7 @@ export default function EscanearScreen() {
       setStatusText(strings.scan.lookingUp);
       try {
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        const product = await lookupProductByBarcode(raw);
+        const product = await lookupProductByBarcode(code);
         if (!product) {
           setBusy(false);
           setStatusText(null);
@@ -98,7 +126,7 @@ export default function EscanearScreen() {
             {
               text: strings.common.ok,
               onPress: () => {
-                lockRef.current = false;
+                setScanLock(false);
               },
             },
           ]);
@@ -110,21 +138,21 @@ export default function EscanearScreen() {
         unlockSoon(1800);
       } catch {
         Alert.alert(strings.common.error, strings.common.tryAgain, [
-          { text: strings.common.ok, onPress: () => { lockRef.current = false; } },
+          { text: strings.common.ok, onPress: () => { setScanLock(false); } },
         ]);
       } finally {
         setBusy(false);
         setStatusText(null);
       }
     },
-    [busy, isFocused, manualOpen, mode],
+    [busy, isFocused, manualOpen, mode, setScanLock, unlockSoon],
   );
 
   const submitManual = async () => {
-    const code = manualCode.replace(/\D/g, '');
-    if (code.length < 6) return;
+    const code = normalizeBarcode(manualCode);
+    if (!isPlausibleBarcode(code)) return;
     setManualOpen(false);
-    lockRef.current = true;
+    setScanLock(true);
     if (!(await gateScanOrPromptPremium())) return;
     setBusy(true);
     setStatusText(strings.scan.lookingUp);
@@ -132,7 +160,7 @@ export default function EscanearScreen() {
       const product = await lookupProductByBarcode(code);
       if (!product) {
         Alert.alert(strings.product.notFoundTitle, strings.product.notFoundBody, [
-          { text: strings.common.ok, onPress: () => { lockRef.current = false; } },
+          { text: strings.common.ok, onPress: () => { setScanLock(false); } },
         ]);
         return;
       }
@@ -142,7 +170,7 @@ export default function EscanearScreen() {
       unlockSoon(1800);
     } catch {
       Alert.alert(strings.common.error, strings.common.tryAgain, [
-        { text: strings.common.ok, onPress: () => { lockRef.current = false; } },
+        { text: strings.common.ok, onPress: () => { setScanLock(false); } },
       ]);
     } finally {
       setBusy(false);
@@ -154,7 +182,7 @@ export default function EscanearScreen() {
   const runVisualCapture = async () => {
     if (!isFocused || busy || lockRef.current) return;
     try {
-      lockRef.current = true;
+      setScanLock(true);
       if (!(await gateScanOrPromptPremium())) return;
       setBusy(true);
       setStatusText(strings.scan.analyzingVisual);
@@ -164,12 +192,16 @@ export default function EscanearScreen() {
       });
       if (!photo?.uri) {
         Alert.alert(strings.common.error, strings.scan.visual.missingImage, [
-          { text: strings.common.ok, onPress: () => { lockRef.current = false; } },
+          { text: strings.common.ok, onPress: () => { setScanLock(false); } },
         ]);
         return;
       }
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       const result = await identifyPackagingFromImage({ imageUri: photo.uri });
+      if (result.diagnostics && 'cancelled' in result.diagnostics && result.diagnostics.cancelled) {
+        setScanLock(false);
+        return;
+      }
 
       if (result.tier === 'auto_open' && result.candidates[0]?.product) {
         const product = result.candidates[0].product;
@@ -189,6 +221,25 @@ export default function EscanearScreen() {
           unlockSoon(1800);
           return;
         }
+        // auto_open without hydratable product — fall through to help CTA
+        Alert.alert(strings.product.notFoundTitle, strings.product.notFoundBody, [
+          {
+            text: strings.scan.visual.helpCta,
+            onPress: () => {
+              setScanLock(false);
+              router.push({
+                pathname: '/comunidad/contribuir',
+                params: {
+                  source: 'failed_visual',
+                  barcode: result.candidates[0]?.barcode ?? '',
+                  ocrHint: result.ocr?.fullText ?? '',
+                },
+              });
+            },
+          },
+          { text: strings.common.ok, onPress: () => { setScanLock(false); } },
+        ]);
+        return;
       }
 
       if (
@@ -218,7 +269,7 @@ export default function EscanearScreen() {
         {
           text: strings.scan.visual.helpCta,
           onPress: () => {
-            lockRef.current = false;
+            setScanLock(false);
             router.push({
               pathname: '/comunidad/contribuir',
               params: {
@@ -228,13 +279,13 @@ export default function EscanearScreen() {
             });
           },
         },
-        { text: strings.common.ok, onPress: () => { lockRef.current = false; } },
+        { text: strings.common.ok, onPress: () => { setScanLock(false); } },
       ]);
     } catch (err) {
       Alert.alert(
         strings.common.error,
         err instanceof Error ? err.message : strings.common.tryAgain,
-        [{ text: strings.common.ok, onPress: () => { lockRef.current = false; } }],
+        [{ text: strings.common.ok, onPress: () => { setScanLock(false); } }],
       );
     } finally {
       setBusy(false);
@@ -282,7 +333,7 @@ export default function EscanearScreen() {
 
   const showVisualCapture = mode === 'visual' || mode === 'auto';
   const scanningEnabled =
-    isFocused && !busy && !manualOpen && mode !== 'visual' && !lockRef.current;
+    isFocused && !busy && !manualOpen && mode !== 'visual' && !locked;
 
   return (
     <View style={styles.root}>

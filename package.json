@@ -10,8 +10,12 @@
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
     "test:scoring": "node ./scripts/test-scoring.mjs",
+    "test:barcode": "node ./scripts/test-barcode.mjs",
+    "test:ranking": "node ./scripts/test-ranking.mjs",
+    "test:preferences": "node ./scripts/test-preferences.mjs",
     "test:confidence": "node ./scripts/vision/test-confidence.mjs",
     "test:visual": "node ./scripts/vision/test-visual-pipeline.mjs",
+    "test:unit": "npm run test:scoring && npm run test:barcode && npm run test:ranking && npm run test:preferences && npm run test:confidence",
     "ingest:reference": "node ./scripts/vision/ingest-reference-from-off.mjs"
   },
   "dependencies": {

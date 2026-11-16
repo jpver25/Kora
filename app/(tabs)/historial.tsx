@@ -40,9 +40,33 @@ export default function HistorialScreen() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
+    if (favoritesOnly) {
+      // Show all saved favorites (not only those also in scan history).
+      return favorites
+        .filter((fav) => {
+          if (!q) return true;
+          return (
+            fav.name.toLowerCase().includes(q) ||
+            (fav.brand ?? '').toLowerCase().includes(q) ||
+            fav.barcode.includes(q)
+          );
+        })
+        .map(
+          (fav): HistoryEntry => ({
+            id: `fav-${fav.barcode}`,
+            barcode: fav.barcode,
+            name: fav.name,
+            brand: fav.brand,
+            imageUrl: fav.imageUrl,
+            scoreValue: fav.scoreValue,
+            scoreBand: fav.scoreBand,
+            scannedAt: fav.savedAt,
+            method: 'manual',
+          }),
+        );
+    }
     return items.filter((item) => {
       if (method !== 'all' && item.method !== method) return false;
-      if (favoritesOnly && !favSet.has(item.barcode)) return false;
       if (!q) return true;
       return (
         item.name.toLowerCase().includes(q) ||
@@ -50,7 +74,7 @@ export default function HistorialScreen() {
         item.barcode.includes(q)
       );
     });
-  }, [favSet, favoritesOnly, items, method, query]);
+  }, [favorites, favoritesOnly, items, method, query]);
 
   const onClear = () => {
     Alert.alert(strings.history.clear, strings.history.empty, [

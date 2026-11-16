@@ -56,6 +56,7 @@ export async function ingestReferenceImage(
     updated_at: new Date().toISOString(),
   };
 
+  // Requires service-role client (RLS blocks anon insert/update after migration 005).
   const { data, error } = await supabase
     .from('product_reference_images')
     .upsert(row, { onConflict: 'barcode' })

@@ -70,8 +70,15 @@ function matchesFilters(product: Product, filters: SearchFilters): boolean {
   if (filters.kind === 'food' && product.category === 'beauty') return false;
   if (filters.kind === 'beauty' && product.category !== 'beauty') return false;
   const score = product.score.value;
-  if (filters.minScore != null && (score == null || score < filters.minScore)) return false;
-  if (filters.maxScore != null && (score == null || score > filters.maxScore)) return false;
+  // Unrated products (null score) pass unless the user narrowed away from the full 0–100 range.
+  const narrowed =
+    (filters.minScore != null && filters.minScore > 0) ||
+    (filters.maxScore != null && filters.maxScore < 100);
+  if (narrowed && score == null) return false;
+  if (score != null) {
+    if (filters.minScore != null && score < filters.minScore) return false;
+    if (filters.maxScore != null && score > filters.maxScore) return false;
+  }
 
   const q = filters.query.trim().toLowerCase();
   if (!q) return true;

@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { Screen } from '@/components/ui/Screen';
 import { ProductCard } from '@/components/product/ProductCard';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { strings } from '@/constants/strings.es';
 import {
   EXPLORE_CATEGORIES,
@@ -16,17 +17,22 @@ export default function ExplorarScreen() {
   const [active, setActive] = useState<ExploreCategory | null>(null);
   const [loading, setLoading] = useState(false);
   const [ranking, setRanking] = useState<Product[]>([]);
+  const requestIdRef = useRef(0);
 
   const openCategory = async (cat: ExploreCategory) => {
+    const requestId = ++requestIdRef.current;
     setActive(cat);
     setLoading(true);
+    setRanking([]);
     try {
       const list = await fetchCategoryRanking(cat);
+      if (requestId !== requestIdRef.current) return;
       setRanking(list);
     } catch {
+      if (requestId !== requestIdRef.current) return;
       setRanking([]);
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) setLoading(false);
     }
   };
 
@@ -64,7 +70,7 @@ export default function ExplorarScreen() {
               <Text style={styles.sub}>{strings.explore.loading}</Text>
             </View>
           ) : ranking.length === 0 ? (
-            <Text style={styles.sub}>{strings.explore.empty}</Text>
+            <EmptyState title={strings.explore.empty} />
           ) : (
             ranking.map((p) => (
               <ProductCard

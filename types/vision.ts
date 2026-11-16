@@ -63,5 +63,6 @@ export interface VisualSearchResult {
     pgvectorHits: number;
     offSearchHits: number;
     elapsedMs: number;
+    cancelled?: boolean;
   };
 }

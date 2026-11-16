@@ -1,8 +1,8 @@
 # Implementation status — Kora
 
-Última actualización: 2026-11-15 (Phase 1 + avance Phase 2)
+Última actualización: 2026-11-15 (Phase 1–3 visual AI)
 
-## Listo en este PR
+## Listo
 
 | Ítem | Estado | Notas |
 | --- | --- | --- |
@@ -10,45 +10,44 @@
 | Design system + tipografías | ✅ | Nunito + Fraunces, tokens de marca |
 | Copy ES-CL | ✅ | `constants/strings.es.ts` |
 | Tabs Inicio / Explorar / Escanear / Historial / Perfil | ✅ | Escanear destacado |
-| Splash gate + onboarding con mascota | ✅ | AsyncStorage flag |
-| Cámara unificada Auto / Código / Visual | ✅ | Visual = hook Fase 3 |
-| Barcode scanning real (`expo-camera`) | ✅ | EAN/UPC/Code128… + ingreso manual |
-| Lookup Open Food Facts / Beauty Facts | ✅ | Red real, no mock fijo |
-| Product result shell + ScoreRing | ✅ | Explicación + nutrimentos + aditivos |
-| Historial local | ✅ | AsyncStorage |
-| Scoring Kora original | ✅ | `services/scoring.ts` |
-| Supabase client + migration skeleton | ✅ | Requiere keys del usuario |
-| Docs README / ARCHITECTURE / TESTING / DATABASE_SETUP | ✅ | |
+| Splash / onboarding con mascota | ✅ | AsyncStorage |
+| Barcode scanning + OFF/OBF lookup | ✅ | Expo Go |
+| Product result + ScoreRing | ✅ | |
+| Historial local | ✅ | |
+| Scoring Kora | ✅ | |
+| **Visual pipeline Phase 3** | ✅ | Detection → OCR → embedding → search → tiers |
+| Confidence UI (auto / candidates / low) | ✅ | `visual-candidates` screen |
+| pgvector migration + RPC | ✅ | `002_visual_embeddings.sql` |
+| Edge Function `visual-identify` | ✅ | Needs `OPENAI_API_KEY` secret |
+| Reference ingestion hooks | ✅ | App service + Node script |
+| Fixture measurements | ✅ | `fixtures/packaging/MEASURED_RESULTS.json` |
+| Docs | ✅ | + `VISUAL_AI.md` |
 
-## En progreso / parcial (Phase 2+)
+## Parcial
 
 | Ítem | Estado | Blocker |
 | --- | --- | --- |
-| Catálogo Kora en Postgres | 🟡 schema only | Crear proyecto Supabase + aplicar SQL + seeds |
-| Alternativas reales | 🟡 UI shell | Necesita catálogo + ranking |
-| Auth / perfiles | 🟡 schema only | Supabase Auth + UI login |
-| Sync historial a `scan_events` | ⬜ | Auth + keys |
-
-## Pendiente (fases posteriores)
-
-| Fase | Ítem |
-| --- | --- |
-| 3 | IA visual de empaque + embeddings `pgvector` |
-| 4 | Preferencias dietarias, listas, profundidad educativa |
-| 5 | Comunidad / reportes |
-| 6 | Premium / suscripciones |
-| 7 | Producción (EAS Store, monitoring) |
+| Cloud OCR on device | 🟡 wired | OpenAI / Edge secret missing in this environment |
+| CLIP neural embeddings | 🟡 interim hash | Replace Edge embed with CLIP model |
+| Catálogo Kora seeded | 🟡 schema | Supabase project + ingest |
+| On-device ML Kit detection | ⬜ | Needs expo-dev-client / EAS |
 
 ## Blockers externos (exactos)
 
-1. **`EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY`** — no están en el repo; sin ellas el cliente Supabase queda `null` y el lookup usa solo OFF.  
-2. **Proyecto EAS** — `extra.eas.projectId` es placeholder; necesario para builds iOS de desarrollo/producción.  
-3. **Cuenta Apple Developer** — para TestFlight / App Store (no bloquea Expo Go).  
-4. **Modelo visual / API** — Fase 3; el stub `recognizeProductVisually` ya está cableado al modo Visual.
+1. **`EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY`**
+2. **Vision provider:** Supabase secret `OPENAI_API_KEY` for Edge Function, or dev `EXPO_PUBLIC_OPENAI_API_KEY`
+3. **EAS `projectId`** placeholder — only needed for Dev Client / store
+4. **Apple Developer** — TestFlight/store only
+5. **Empty reference image table** until ingest runs against a live Supabase
 
-## Qué funciona hoy en Expo Go
+## Qué funciona en Expo Go (iPhone)
 
-- Onboarding, tabs, home con recientes  
-- Cámara + escaneo de barcode + búsqueda manual  
-- Ficha de producto con puntaje Kora desde datos OFF  
-- Historial y perfil (aviso si falta Supabase)
+- Todo Phase 1/2 (tabs, barcode, ficha, historial)
+- Modo Visual: captura frame, corre pipeline
+- Sin proveedor de visión: mensaje honesto, **cero productos inventados**
+- Con OpenAI/Edge configurado: OCR → búsqueda OFF real → tiers / ficha
+- pgvector: cuando Supabase + migration 002 + referencias existan
+
+## Medición fixtures
+
+`npm run test:visual` → **3/3 pass** (con matices OCR en thumbs 400px; ver `VISUAL_AI.md`)

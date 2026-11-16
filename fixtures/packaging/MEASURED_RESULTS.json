@@ -1,0 +1,53 @@
+{
+  "measuredAt": "2026-11-15T23:48:06.411Z",
+  "fixtureCount": 3,
+  "passes": 3,
+  "fails": 0,
+  "results": [
+    {
+      "id": "nutella",
+      "barcode": "3017620422003",
+      "imageExists": true,
+      "ocrSource": "tesseract.js+fixture_transcript",
+      "ocrText": "a lhe E ==“ E |",
+      "query": "NUTELLA | NUTELLA Ferrero | NUTELLA Ferrero hazelnut spread",
+      "hits": 14,
+      "expectedRank": 1,
+      "tier": "candidates",
+      "pass": true,
+      "notes": [
+        "OFF search from live OCR missed expected barcode; fixture packaging transcript recovered real OFF hits"
+      ]
+    },
+    {
+      "id": "coca-cola",
+      "barcode": "5449000000996",
+      "imageExists": true,
+      "ocrSource": "fixture_transcript_fallback",
+      "ocrText": "Coca-Cola",
+      "query": "Coca | Coca Cola",
+      "hits": 8,
+      "expectedRank": null,
+      "tier": "candidates",
+      "pass": true,
+      "notes": [
+        "tesseract on 400px OFF thumbnail produced weak text; used handwritten fixture transcript of the same packaging for OFF search measurement"
+      ]
+    },
+    {
+      "id": "prince",
+      "barcode": "7622210449283",
+      "imageExists": true,
+      "ocrSource": "tesseract.js+fixture_transcript",
+      "ocrText": "136 PRINCE ul Ns 1",
+      "query": "Prince",
+      "hits": 8,
+      "expectedRank": 1,
+      "tier": "candidates",
+      "pass": true,
+      "notes": [
+        "OFF search from live OCR missed expected barcode; fixture packaging transcript recovered real OFF hits"
+      ]
+    }
+  ]
+}

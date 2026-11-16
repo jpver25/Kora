@@ -24,7 +24,7 @@ export const strings = {
       },
       {
         title: 'Código o empaque',
-        body: 'Escanea el código de barras o apunta a la etiqueta. Pronto también reconoceremos el envase con IA visual.',
+        body: 'Escanea el código de barras o apunta al frente del envase: Kora combina OCR e IA visual con catálogos reales.',
       },
       {
         title: 'Mejores alternativas',
@@ -61,7 +61,7 @@ export const strings = {
   scan: {
     title: 'Escanear',
     permissionTitle: 'Necesitamos la cámara',
-    permissionBody: 'Kora usa la cámara para leer códigos de barras y, más adelante, reconocer envases.',
+    permissionBody: 'Kora usa la cámara para leer códigos de barras y reconocer envases.',
     permissionCta: 'Permitir cámara',
     modes: {
       auto: 'Auto',
@@ -70,15 +70,31 @@ export const strings = {
     },
     hintAuto: 'Apunta al código o al frente del producto',
     hintBarcode: 'Centra el código de barras en el marco',
-    hintVisual: 'La IA visual llega en una próxima fase — por ahora usa el código',
+    hintVisual: 'Centra el frente del envase y captura',
     lookingUp: 'Buscando producto…',
+    analyzingVisual: 'Analizando empaque…',
     torch: 'Linterna',
+    capture: 'Capturar envase',
     manual: 'Ingresar código',
     manualPlaceholder: 'Ej: 7801234567890',
     manualSubmit: 'Buscar',
-    visualSoon: 'Reconocimiento visual en camino',
+    visualSoon: 'Reconocimiento visual',
     visualSoonBody:
-      'Estamos preparando la IA de empaque. Mientras tanto, escanea el código de barras.',
+      'Configura OpenAI o la Edge Function para OCR/embeddings. Sin proveedor no inventamos productos.',
+    visual: {
+      missingImage: 'Necesitamos una foto del empaque.',
+      needsProvider:
+        'Falta un proveedor de visión (EXPO_PUBLIC_OPENAI_API_KEY o Edge Function visual-identify). No inventamos coincidencias.',
+      autoOpen: 'Producto identificado con alta confianza.',
+      candidates: 'Encontramos {n} posibles coincidencias. Elige una.',
+      lowConfidence: 'Confianza baja: revisa las opciones o prueba con mejor luz.',
+      noMatch:
+        'No encontramos el producto en catálogos reales. Prueba otro ángulo o el código de barras.',
+      pickTitle: '¿Cuál es tu producto?',
+      confidence: 'Confianza',
+      providerNone: 'Sin proveedor de visión',
+      providerReady: 'Visión lista',
+    },
   },
 
   product: {

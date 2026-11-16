@@ -19,7 +19,8 @@ import { Button } from '@/components/ui/Button';
 import { strings } from '@/constants/strings.es';
 import { lookupProductByBarcode } from '@/services/productLookup';
 import { addHistoryFromProduct } from '@/services/history';
-import { recognizeProductVisually } from '@/services/visualRecognition';
+import { identifyPackagingFromImage } from '@/services/visualRecognition';
+import { getActiveVisionProvider } from '@/services/vision/ocr';
 import type { ScanMode } from '@/types/product';
 import { colors, radii, spacing, typography } from '@/theme';
 
@@ -28,9 +29,12 @@ export default function EscanearScreen() {
   const [mode, setMode] = useState<ScanMode>('auto');
   const [torch, setTorch] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [statusText, setStatusText] = useState<string | null>(null);
   const [manualOpen, setManualOpen] = useState(false);
   const [manualCode, setManualCode] = useState('');
   const lockRef = useRef(false);
+  const cameraRef = useRef<CameraView>(null);
+  const visionProvider = getActiveVisionProvider();
 
   const handleBarcode = useCallback(
     async (payload: BarcodeScanningResult) => {
@@ -39,12 +43,18 @@ export default function EscanearScreen() {
       if (!raw || lockRef.current || busy) return;
       lockRef.current = true;
       setBusy(true);
+      setStatusText(strings.scan.lookingUp);
       try {
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         const product = await lookupProductByBarcode(raw);
         if (!product) {
           Alert.alert(strings.product.notFoundTitle, strings.product.notFoundBody, [
-            { text: strings.common.ok, onPress: () => { lockRef.current = false; } },
+            {
+              text: strings.common.ok,
+              onPress: () => {
+                lockRef.current = false;
+              },
+            },
           ]);
           return;
         }
@@ -54,6 +64,7 @@ export default function EscanearScreen() {
         Alert.alert(strings.common.error, strings.common.tryAgain);
       } finally {
         setBusy(false);
+        setStatusText(null);
         setTimeout(() => {
           lockRef.current = false;
         }, 1500);
@@ -67,6 +78,7 @@ export default function EscanearScreen() {
     if (code.length < 6) return;
     setManualOpen(false);
     setBusy(true);
+    setStatusText(strings.scan.lookingUp);
     try {
       const product = await lookupProductByBarcode(code);
       if (!product) {
@@ -79,13 +91,79 @@ export default function EscanearScreen() {
       Alert.alert(strings.common.error, strings.common.tryAgain);
     } finally {
       setBusy(false);
+      setStatusText(null);
       setManualCode('');
     }
   };
 
-  const onVisualTap = async () => {
-    const result = await recognizeProductVisually({ imageUri: '' });
-    Alert.alert(strings.scan.visualSoon, result.message);
+  const runVisualCapture = async () => {
+    if (busy || lockRef.current) return;
+    try {
+      lockRef.current = true;
+      setBusy(true);
+      setStatusText(strings.scan.analyzingVisual);
+      const photo = await cameraRef.current?.takePictureAsync({
+        quality: 0.7,
+        skipProcessing: false,
+      });
+      if (!photo?.uri) {
+        Alert.alert(strings.common.error, strings.scan.visual.missingImage);
+        return;
+      }
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      const result = await identifyPackagingFromImage({ imageUri: photo.uri });
+
+      if (result.tier === 'auto_open' && result.candidates[0]?.product) {
+        const product = result.candidates[0].product;
+        await addHistoryFromProduct(product, 'visual');
+        router.push(`/product/${product.barcode}`);
+        return;
+      }
+
+      if (result.tier === 'auto_open' && result.candidates[0]?.barcode) {
+        const product = await lookupProductByBarcode(result.candidates[0].barcode);
+        if (product) {
+          await addHistoryFromProduct(product, 'visual');
+          router.push(`/product/${product.barcode}`);
+          return;
+        }
+      }
+
+      if (
+        (result.tier === 'candidates' || result.tier === 'low_confidence') &&
+        result.candidates.length > 0
+      ) {
+        router.push({
+          pathname: '/visual-candidates',
+          params: {
+            message: result.message,
+            payload: JSON.stringify(
+              result.candidates.map((c) => ({
+                barcode: c.barcode,
+                name: c.name,
+                brand: c.brand,
+                imageUrl: c.imageUrl,
+                score: c.score,
+              })),
+            ),
+          },
+        });
+        return;
+      }
+
+      Alert.alert(strings.scan.visualSoon, result.message);
+    } catch (err) {
+      Alert.alert(
+        strings.common.error,
+        err instanceof Error ? err.message : strings.common.tryAgain,
+      );
+    } finally {
+      setBusy(false);
+      setStatusText(null);
+      setTimeout(() => {
+        lockRef.current = false;
+      }, 800);
+    }
   };
 
   if (!permission) {
@@ -126,9 +204,12 @@ export default function EscanearScreen() {
         ? strings.scan.hintVisual
         : strings.scan.hintAuto;
 
+  const showVisualCapture = mode === 'visual' || mode === 'auto';
+
   return (
     <View style={styles.root}>
       <CameraView
+        ref={cameraRef}
         style={StyleSheet.absoluteFill}
         facing="back"
         enableTorch={torch}
@@ -143,13 +224,12 @@ export default function EscanearScreen() {
       <SafeAreaView style={styles.ui} edges={['top', 'bottom']}>
         <View style={styles.header}>
           <Text style={styles.title}>{strings.scan.title}</Text>
-          <ScanModeSwitcher
-            mode={mode}
-            onChange={(m) => {
-              setMode(m);
-              if (m === 'visual') void onVisualTap();
-            }}
-          />
+          <ScanModeSwitcher mode={mode} onChange={setMode} />
+          <Text style={styles.provider}>
+            {visionProvider === 'none'
+              ? strings.scan.visual.providerNone
+              : `${strings.scan.visual.providerReady} (${visionProvider})`}
+          </Text>
         </View>
 
         <View style={styles.frameArea}>
@@ -158,7 +238,7 @@ export default function EscanearScreen() {
           {busy ? (
             <View style={styles.busy}>
               <ActivityIndicator color={colors.lime} />
-              <Text style={styles.busyText}>{strings.scan.lookingUp}</Text>
+              <Text style={styles.busyText}>{statusText ?? strings.scan.lookingUp}</Text>
             </View>
           ) : null}
         </View>
@@ -167,6 +247,14 @@ export default function EscanearScreen() {
           <Pressable style={styles.footerBtn} onPress={() => setTorch((t) => !t)}>
             <Text style={styles.footerBtnText}>{strings.scan.torch}</Text>
           </Pressable>
+          {showVisualCapture ? (
+            <Pressable
+              style={[styles.footerBtn, styles.captureBtn]}
+              onPress={() => void runVisualCapture()}
+              disabled={busy}>
+              <Text style={[styles.footerBtnText, styles.captureText]}>{strings.scan.capture}</Text>
+            </Pressable>
+          ) : null}
           <Pressable style={styles.footerBtn} onPress={() => setManualOpen(true)}>
             <Text style={styles.footerBtnText}>{strings.scan.manual}</Text>
           </Pressable>
@@ -212,7 +300,12 @@ function ManualModal({
             autoFocus
           />
           <Button label={strings.scan.manualSubmit} onPress={onSubmit} />
-          <Button label={strings.common.cancel} variant="ghost" onPress={onClose} style={{ marginTop: 8 }} />
+          <Button
+            label={strings.common.cancel}
+            variant="ghost"
+            onPress={onClose}
+            style={{ marginTop: 8 }}
+          />
         </View>
       </View>
     </Modal>
@@ -221,7 +314,12 @@ function ManualModal({
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#000' },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.cream },
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.cream,
+  },
   permission: {
     flex: 1,
     backgroundColor: colors.cream,
@@ -238,10 +336,11 @@ const styles = StyleSheet.create({
   ui: { flex: 1, justifyContent: 'space-between' },
   header: {
     paddingHorizontal: spacing.lg,
-    gap: spacing.md,
+    gap: spacing.sm,
     alignItems: 'center',
   },
   title: { ...typography.title, color: colors.white },
+  provider: { ...typography.caption, color: colors.lime },
   frameArea: { alignItems: 'center', gap: spacing.md },
   hint: {
     ...typography.body,
@@ -254,16 +353,20 @@ const styles = StyleSheet.create({
   footer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    paddingHorizontal: spacing.lg,
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
     paddingBottom: spacing.md,
+    gap: spacing.sm,
   },
   footerBtn: {
     paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     borderRadius: radii.pill,
     backgroundColor: 'rgba(255,255,255,0.18)',
   },
+  captureBtn: { backgroundColor: colors.lime },
   footerBtnText: { ...typography.bodyStrong, color: colors.white },
+  captureText: { color: colors.ink },
   modalBackdrop: {
     flex: 1,
     backgroundColor: colors.overlay,

@@ -6,10 +6,12 @@ import { Button } from '@/components/ui/Button';
 import { strings } from '@/constants/strings.es';
 import { setOnboardingCompleted } from '@/services/onboarding';
 import { isSupabaseConfigured } from '@/services/supabase';
+import { getActiveVisionProvider } from '@/services/vision/ocr';
 import { colors, radii, spacing, typography } from '@/theme';
 
 export default function PerfilScreen() {
   const version = Constants.expoConfig?.version ?? '1.0.0';
+  const visionProvider = getActiveVisionProvider();
 
   return (
     <Screen scroll>
@@ -39,6 +41,15 @@ export default function PerfilScreen() {
         {!isSupabaseConfigured ? (
           <Text style={styles.cardBody}>{strings.profile.supabaseHint}</Text>
         ) : null}
+      </View>
+
+      <View style={[styles.card, visionProvider === 'none' && styles.warn]}>
+        <Text style={styles.cardTitle}>
+          {visionProvider === 'none'
+            ? strings.scan.visual.providerNone
+            : `${strings.scan.visual.providerReady} (${visionProvider})`}
+        </Text>
+        <Text style={styles.cardBody}>{strings.scan.visualSoonBody}</Text>
       </View>
 
       <View style={styles.card}>

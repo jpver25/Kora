@@ -48,6 +48,10 @@ export default function RootLayout() {
           name="product/[barcode]"
           options={{ headerShown: true, title: 'Producto', animation: 'slide_from_right' }}
         />
+        <Stack.Screen
+          name="visual-candidates"
+          options={{ headerShown: true, title: 'Candidatos', animation: 'slide_from_bottom' }}
+        />
       </Stack>
     </>
   );

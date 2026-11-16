@@ -3,76 +3,74 @@
 Escáner inteligente de alimentos y cosméticos para Chile.  
 **Sabe qué estás comprando.**
 
-Stack: **React Native · Expo · TypeScript · Expo Router · Expo Camera · Supabase**.  
-UI en **español (Chile)**. Flujo principal: Expo Go en iPhone.
+Stack: **React Native · Expo · TypeScript · Expo Router · Expo Camera · Supabase · pgvector**.  
+UI en **español (Chile)**. Flujo principal: **Expo Go en iPhone**.
 
 ## Arranque rápido (Expo Go)
 
-1. Instala dependencias:
-
 ```bash
 npm install
-```
-
-2. (Opcional) Configura Supabase:
-
-```bash
-cp .env.example .env
-# Completa EXPO_PUBLIC_SUPABASE_URL y EXPO_PUBLIC_SUPABASE_ANON_KEY
-```
-
-Sin `.env`, la app igual busca productos en **Open Food Facts** / **Open Beauty Facts**.
-
-3. Inicia Metro:
-
-```bash
+cp .env.example .env   # opcional: Supabase + visión
 npx expo start
 ```
 
-4. Abre **Expo Go** en el iPhone y escanea el QR.
+Abre **Expo Go** en el iPhone y escanea el QR.
 
-### Probar el escáner
+### Escanear
 
-- Ve a la pestaña **Escanear** (botón lime destacado).
-- Permite la cámara.
-- Centra un código de barras EAN/UPC, o usa **Ingresar código**.
-- Códigos de prueba conocidos en OFF (ejemplos públicos): `3017620422003` (Nutella), `5449000000996` (Coca-Cola).
+- **Código / Auto:** apunta un EAN/UPC o usa **Ingresar código**  
+  Pruebas OFF: `3017620422003` (Nutella), `5449000000996` (Coca-Cola)
+- **Visual:** **Capturar envase** → OCR + búsqueda en catálogos reales  
+  Sin proveedor de visión: mensaje honesto (no inventa productos)  
+  Con Edge/OpenAI: tiers `auto_open` / candidatos / baja confianza
 
-### Cuando Expo Go no alcanza
+### Visión (Phase 3)
 
-Funciones nativas avanzadas (IA on-device, módulos custom) requieren:
+1. Aplica migraciones `001` + `002` en Supabase  
+2. Despliega `supabase/functions/visual-identify` y setea secret `OPENAI_API_KEY`  
+3. O (dev) `EXPO_PUBLIC_OPENAI_API_KEY` en `.env`  
+
+Detalle: [VISUAL_AI.md](./VISUAL_AI.md)
+
+### ¿Cuándo hace falta EAS / Dev Client?
+
+Solo para ML Kit u otros módulos nativos custom.  
+**OCR cloud + barcode + pgvector funcionan en Expo Go.**
 
 ```bash
 npx eas build --profile development --platform ios
 ```
 
-y `expo-dev-client`. Documentado en `ARCHITECTURE.md`.
+## Tests
+
+```bash
+npm run typecheck
+npm run test:scoring
+npm run test:confidence
+npm run test:visual          # fixtures OFF reales + medición honesta
+```
 
 ## Documentación
 
 | Doc | Contenido |
 | --- | --- |
-| [ARCHITECTURE.md](./ARCHITECTURE.md) | Módulos, navegación, hooks Fase 3 |
-| [IMPLEMENTATION_STATUS.md](./IMPLEMENTATION_STATUS.md) | Qué está listo / pendiente |
-| [TESTING.md](./TESTING.md) | Checklist Expo Go + casos |
-| [DATABASE_SETUP.md](./DATABASE_SETUP.md) | Supabase + migración |
+| [ARCHITECTURE.md](./ARCHITECTURE.md) | Módulos y navegación |
+| [VISUAL_AI.md](./VISUAL_AI.md) | Pipeline visual, mediciones, Expo Go |
+| [IMPLEMENTATION_STATUS.md](./IMPLEMENTATION_STATUS.md) | Listo / blockers |
+| [TESTING.md](./TESTING.md) | Checklist dispositivo |
+| [DATABASE_SETUP.md](./DATABASE_SETUP.md) | Supabase + embeddings |
 
 ## Estructura
 
 ```
-app/                 Expo Router (tabs, onboarding, producto)
-components/          UI, scanner, product
-services/            OFF lookup, scoring, history, supabase, visual hook
-theme/               tokens de marca
-supabase/migrations/ SQL skeleton + pgvector
-assets/images/brand/ mascota e ilustraciones
+app/                      Expo Router
+components/               UI + scanner
+services/vision/          Detection, OCR, embedding, search, ranking
+supabase/migrations/      001 schema + 002 visual embeddings
+supabase/functions/       visual-identify
+fixtures/packaging/       imágenes OFF reales + MEASURED_RESULTS.json
 ```
 
 ## Marca
 
-Colores: `#163B35` · `#537C65` · `#FAF8F4` · `#C8E77B` · `#FFFFFF` · `#17211D`
-
-## Licencia / datos
-
-Los productos públicos se consultan a Open Food Facts / Open Beauty Facts bajo sus términos.  
-El puntaje **Kora** es original (no usa copy ni fórmula propietaria de Yuka).
+`#163B35` · `#537C65` · `#FAF8F4` · `#C8E77B` · `#FFFFFF` · `#17211D`

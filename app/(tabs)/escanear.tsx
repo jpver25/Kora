@@ -246,6 +246,7 @@ export default function EscanearScreen() {
         (result.tier === 'candidates' || result.tier === 'low_confidence') &&
         result.candidates.length > 0
       ) {
+        await recordScanUsage();
         router.push({
           pathname: '/visual-candidates',
           params: {
@@ -265,6 +266,8 @@ export default function EscanearScreen() {
         return;
       }
 
+      // Failed / no-match visual attempts still consume a free scan slot.
+      await recordScanUsage();
       Alert.alert(strings.scan.visualSoon, result.message, [
         {
           text: strings.scan.visual.helpCta,

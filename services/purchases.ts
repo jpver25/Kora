@@ -76,6 +76,17 @@ export function getPurchaseEnvironment(): PurchaseEnvironment {
   };
 }
 
+async function resolveAppUserId(explicit?: string | null): Promise<string | null> {
+  if (explicit) return explicit;
+  try {
+    const { getAuthState } = await import('@/services/auth');
+    const auth = await getAuthState();
+    return auth.user?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function configurePurchases(appUserId?: string | null): Promise<PurchaseEnvironment> {
   const env = getPurchaseEnvironment();
   if (!env.canPurchase || !Purchases) return env;
@@ -84,6 +95,7 @@ export async function configurePurchases(appUserId?: string | null): Promise<Pur
     process.env.EXPO_PUBLIC_REVENUECAT_API_KEY?.trim() ||
     process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY?.trim() ||
     '';
+  const resolvedUserId = await resolveAppUserId(appUserId);
 
   if (!configured) {
     if (__DEV__ && LOG_LEVEL) {
@@ -91,12 +103,12 @@ export async function configurePurchases(appUserId?: string | null): Promise<Pur
     }
     Purchases.configure({
       apiKey,
-      appUserID: appUserId ?? undefined,
+      appUserID: resolvedUserId ?? undefined,
     });
     configured = true;
-  } else if (appUserId) {
+  } else if (resolvedUserId) {
     try {
-      await Purchases.logIn(appUserId);
+      await Purchases.logIn(resolvedUserId);
     } catch (e) {
       console.warn('[purchases] logIn', e);
     }
@@ -104,8 +116,17 @@ export async function configurePurchases(appUserId?: string | null): Promise<Pur
   return env;
 }
 
-export async function getOfferings(): Promise<OfferingPackageInfo[]> {
-  const env = await configurePurchases();
+export async function logOutPurchases(): Promise<void> {
+  if (!tryLoadPurchases() || !Purchases || !configured) return;
+  try {
+    await Purchases.logOut();
+  } catch (e) {
+    console.warn('[purchases] logOut', e);
+  }
+}
+
+export async function getOfferings(appUserId?: string | null): Promise<OfferingPackageInfo[]> {
+  const env = await configurePurchases(appUserId);
   if (!env.canPurchase || !Purchases) return [];
 
   try {
@@ -130,8 +151,11 @@ export type PurchaseResult =
   | { ok: false; reason: string };
 
 /** Never invents Premium — returns inactive if RC/StoreKit unavailable or no entitlement. */
-export async function purchasePackage(packageIdentifier: string): Promise<PurchaseResult> {
-  const env = await configurePurchases();
+export async function purchasePackage(
+  packageIdentifier: string,
+  appUserId?: string | null,
+): Promise<PurchaseResult> {
+  const env = await configurePurchases(appUserId);
   if (!env.canPurchase || !Purchases) {
     return { ok: false, reason: env.reasonSpanish || 'purchases_unavailable' };
   }
@@ -165,8 +189,8 @@ export async function purchasePackage(packageIdentifier: string): Promise<Purcha
   }
 }
 
-export async function restorePurchases(): Promise<PurchaseResult> {
-  const env = await configurePurchases();
+export async function restorePurchases(appUserId?: string | null): Promise<PurchaseResult> {
+  const env = await configurePurchases(appUserId);
   if (!env.canPurchase || !Purchases) {
     return { ok: false, reason: env.reasonSpanish || 'purchases_unavailable' };
   }
@@ -184,19 +208,21 @@ export async function restorePurchases(): Promise<PurchaseResult> {
   }
 }
 
-export async function fetchCustomerPremium(): Promise<{
+export async function fetchCustomerPremium(appUserId?: string | null): Promise<{
   isPremium: boolean;
   productId?: string | null;
   expiresAt?: string | null;
   source: 'revenuecat' | 'none';
   reason?: string;
+  softFailure?: boolean;
 }> {
-  const env = await configurePurchases();
+  const env = await configurePurchases(appUserId);
   if (!env.canPurchase || !Purchases) {
     return {
       isPremium: false,
       source: 'none',
       reason: env.reasonSpanish || 'purchases_unavailable',
+      softFailure: true,
     };
   }
   try {
@@ -217,6 +243,7 @@ export async function fetchCustomerPremium(): Promise<{
       isPremium: false,
       source: 'none',
       reason: err.message || 'customer_info_failed',
+      softFailure: true,
     };
   }
 }

@@ -25,6 +25,9 @@ create policy "entitlements_select_own"
   on public.user_entitlements for select
   using (auth.uid() = user_id);
 
+-- No client INSERT/UPDATE: Premium mirror is written by a trusted webhook / service role
+-- after RevenueCat validates the receipt. Clients must never self-grant Premium.
+
 -- Profiles: allow authenticated users to update/read own row
 drop policy if exists "profiles_select_own" on public.profiles;
 create policy "profiles_select_own"

@@ -6,10 +6,10 @@ import {
   PREMIUM_ENTITLEMENTS,
 } from '@/types/entitlements';
 import { fetchCustomerPremium } from '@/services/purchases';
-import { isSupabaseConfigured, supabase } from '@/services/supabase';
 
 const CACHE_KEY = 'kora.entitlements.snapshot.v1';
 const SCAN_USAGE_KEY = 'kora.usage.scans.v1';
+const REFRESH_TTL_MS = 15 * 60 * 1000;
 
 export async function getCachedEntitlements(): Promise<EntitlementSnapshot | null> {
   try {
@@ -24,13 +24,50 @@ async function saveSnapshot(snap: EntitlementSnapshot) {
   await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(snap));
 }
 
+export async function clearEntitlementsCache(): Promise<void> {
+  await AsyncStorage.removeItem(CACHE_KEY);
+}
+
+function isExpired(snap: EntitlementSnapshot): boolean {
+  if (!snap.isPremium) return false;
+  if (!snap.expiresAt) return false;
+  const exp = new Date(snap.expiresAt).getTime();
+  return Number.isFinite(exp) && exp <= Date.now();
+}
+
+function withExpiryGuard(snap: EntitlementSnapshot): EntitlementSnapshot {
+  if (!snap.isPremium) return snap;
+  if (!isExpired(snap)) return snap;
+  return {
+    ...snap,
+    tier: 'free',
+    isPremium: false,
+    reason: 'expired',
+    checkedAt: new Date().toISOString(),
+  };
+}
+
 /**
  * Refresh entitlements from RevenueCat when possible.
- * Never invents Premium. Optional Supabase mirror is read-only confirmation only if RC already active.
+ * Never invents Premium. Does not write Premium to Supabase from the client
+ * (RLS blocks it; StoreKit/RC remains source of truth).
  */
 export async function refreshEntitlements(userId?: string | null): Promise<EntitlementSnapshot> {
-  const rc = await fetchCustomerPremium();
-  let snap: EntitlementSnapshot = {
+  const cached = await getCachedEntitlements();
+  const rc = await fetchCustomerPremium(userId);
+
+  // Soft failures / Expo Go: keep previously confirmed Premium if still unexpired.
+  if (
+    !rc.isPremium &&
+    rc.softFailure &&
+    cached?.isPremium &&
+    !isExpired(cached) &&
+    cached.source === 'revenuecat'
+  ) {
+    return cached;
+  }
+
+  const snap: EntitlementSnapshot = withExpiryGuard({
     tier: rc.isPremium ? 'premium' : 'free',
     isPremium: rc.isPremium,
     source: rc.source === 'revenuecat' ? 'revenuecat' : 'none',
@@ -38,18 +75,7 @@ export async function refreshEntitlements(userId?: string | null): Promise<Entit
     expiresAt: rc.expiresAt,
     checkedAt: new Date().toISOString(),
     reason: rc.reason,
-  };
-
-  // Optional server mirror — never upgrade free→premium from DB alone (prevents fake Premium).
-  if (rc.isPremium && userId && isSupabaseConfigured && supabase) {
-    await supabase.from('user_entitlements').upsert({
-      user_id: userId,
-      tier: 'premium',
-      product_id: rc.productId ?? null,
-      expires_at: rc.expiresAt ?? null,
-      updated_at: new Date().toISOString(),
-    });
-  }
+  });
 
   await saveSnapshot(snap);
   return snap;
@@ -57,24 +83,32 @@ export async function refreshEntitlements(userId?: string | null): Promise<Entit
 
 export async function getEntitlements(userId?: string | null): Promise<EntitlementSnapshot> {
   const cached = await getCachedEntitlements();
-  // Prefer a fresh check when online path is available; fall back to cache for offline UX.
   try {
     return await refreshEntitlements(userId);
   } catch {
-    return (
+    return withExpiryGuard(
       cached ?? {
         tier: 'free',
         isPremium: false,
         source: 'none',
         checkedAt: new Date().toISOString(),
         reason: 'refresh_failed',
-      }
+      },
     );
   }
 }
 
+/** Effective entitlements for gating: refresh if cache stale/expired. */
+export async function getEffectiveEntitlements(userId?: string | null): Promise<EntitlementSnapshot> {
+  const cached = await getCachedEntitlements();
+  if (!cached || isExpired(cached) || Date.now() - new Date(cached.checkedAt).getTime() > REFRESH_TTL_MS) {
+    return getEntitlements(userId);
+  }
+  return withExpiryGuard(cached);
+}
+
 export function hasEntitlement(snap: EntitlementSnapshot, id: EntitlementId): boolean {
-  if (!snap.isPremium) return false;
+  if (!snap.isPremium || isExpired(snap)) return false;
   return PREMIUM_ENTITLEMENTS.includes(id);
 }
 
@@ -85,9 +119,14 @@ function todayKey() {
 }
 
 export async function getScanUsage(): Promise<{ count: number; limit: number; remaining: number }> {
-  const snap = (await getCachedEntitlements()) ?? {
-    isPremium: false,
-  };
+  const snap = withExpiryGuard(
+    (await getEffectiveEntitlements()) ?? {
+      tier: 'free',
+      isPremium: false,
+      source: 'none',
+      checkedAt: new Date().toISOString(),
+    },
+  );
   if (snap.isPremium) {
     return { count: 0, limit: Number.POSITIVE_INFINITY, remaining: Number.POSITIVE_INFINITY };
   }
@@ -112,8 +151,8 @@ export async function canPerformScan(): Promise<{ allowed: boolean; remaining: n
 }
 
 export async function recordScanUsage(): Promise<void> {
-  const snap = await getCachedEntitlements();
-  if (snap?.isPremium) return;
+  const snap = await getEffectiveEntitlements();
+  if (snap.isPremium && !isExpired(snap)) return;
   const day = todayKey();
   try {
     const raw = await AsyncStorage.getItem(SCAN_USAGE_KEY);
@@ -126,7 +165,8 @@ export async function recordScanUsage(): Promise<void> {
 }
 
 export function alternativesLimit(snap: EntitlementSnapshot): number {
-  return snap.isPremium ? Number.POSITIVE_INFINITY : FREE_ALTERNATIVES_PREVIEW;
+  const guarded = withExpiryGuard(snap);
+  return guarded.isPremium ? Number.POSITIVE_INFINITY : FREE_ALTERNATIVES_PREVIEW;
 }
 
 export { FREE_DAILY_SCAN_LIMIT, FREE_ALTERNATIVES_PREVIEW, PREMIUM_ENTITLEMENTS };

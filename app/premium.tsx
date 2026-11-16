@@ -43,7 +43,7 @@ export default function PremiumScreen() {
     setSnap(entitlements);
     setUsage(await getScanUsage());
     setOffline(await getOfflinePackageMeta());
-    setOfferings(await getOfferings());
+    setOfferings(await getOfferings(auth.user?.id));
   }, []);
 
   useFocusEffect(
@@ -55,7 +55,7 @@ export default function PremiumScreen() {
   const onBuy = async (id: string) => {
     setBusy(true);
     try {
-      const result = await purchasePackage(id);
+      const result = await purchasePackage(id, userId);
       if (!result.ok) {
         if (result.reason !== 'cancelled') {
           Alert.alert(strings.common.error, result.reason);
@@ -74,7 +74,7 @@ export default function PremiumScreen() {
   const onRestore = async () => {
     setBusy(true);
     try {
-      const result = await restorePurchases();
+      const result = await restorePurchases(userId);
       if (!result.ok) {
         Alert.alert(strings.common.error, result.reason);
         return;
@@ -103,9 +103,14 @@ export default function PremiumScreen() {
 
   const statusLabel = snap?.isPremium
     ? strings.premium.statusPremium
-    : snap?.reason
-      ? strings.premium.statusUnknown
-      : strings.premium.statusFree;
+    : snap?.reason === 'no_active_entitlement' ||
+        snap?.reason === 'expired' ||
+        snap?.source === 'revenuecat' ||
+        (snap && !snap.isPremium && snap.reason?.includes('Expo Go'))
+      ? strings.premium.statusFree
+      : snap?.reason
+        ? strings.premium.statusUnknown
+        : strings.premium.statusFree;
 
   return (
     <>

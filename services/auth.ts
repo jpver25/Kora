@@ -59,7 +59,10 @@ export async function signUpWithEmail(email: string, password: string, displayNa
     options: { data: { display_name: displayName?.trim() || undefined } },
   });
   if (error) throw error;
-  if (data.user) await afterSignIn(data.user);
+  // With email confirmation enabled, signup may return a user without a session.
+  if (data.session?.user) {
+    await afterSignIn(data.session.user, displayName?.trim() || undefined);
+  }
   return data;
 }
 
@@ -105,6 +108,10 @@ export async function signInWithApple() {
     .filter(Boolean)
     .join(' ');
   if (data.user) {
+    // Apple only returns fullName on first authorization — persist into user_metadata then.
+    if (displayName) {
+      await supabase.auth.updateUser({ data: { display_name: displayName } });
+    }
     await afterSignIn(data.user, displayName || undefined);
   }
   return data;
@@ -113,27 +120,28 @@ export async function signInWithApple() {
 async function afterSignIn(user: User, displayName?: string) {
   await upsertProfile(user, displayName);
   await migrateGuestDataToAccount(user.id);
+  const { configurePurchases } = await import('@/services/purchases');
+  const { refreshEntitlements } = await import('@/services/entitlements');
+  await configurePurchases(user.id);
+  await refreshEntitlements(user.id);
 }
 
 export async function upsertProfile(user: User, displayName?: string) {
   if (!supabase) return;
   const guestKey = await getGuestKey();
-  const name =
-    displayName ||
-    (user.user_metadata?.display_name as string | undefined) ||
-    user.email?.split('@')[0] ||
-    null;
-  const { error } = await supabase.from('profiles').upsert(
-    {
-      id: user.id,
-      display_name: name,
-      email: user.email ?? null,
-      guest_key: guestKey,
-      preferred_locale: 'es-CL',
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'id' },
-  );
+  const metaName = (user.user_metadata?.display_name as string | undefined)?.trim();
+  // Never overwrite an existing display name with email prefix on subsequent Apple logins.
+  const name = displayName?.trim() || metaName || null;
+  const payload: Record<string, unknown> = {
+    id: user.id,
+    email: user.email ?? null,
+    guest_key: guestKey,
+    preferred_locale: 'es-CL',
+    updated_at: new Date().toISOString(),
+  };
+  if (name) payload.display_name = name;
+
+  const { error } = await supabase.from('profiles').upsert(payload, { onConflict: 'id' });
   // Schema may be missing — ignore PGRST205
   if (error && error.code !== 'PGRST205') {
     console.warn('[auth] upsertProfile', error.message);
@@ -153,6 +161,10 @@ export async function updateDisplayName(displayName: string) {
 }
 
 export async function signOut() {
+  const { logOutPurchases } = await import('@/services/purchases');
+  const { clearEntitlementsCache } = await import('@/services/entitlements');
+  await logOutPurchases();
+  await clearEntitlementsCache();
   if (!supabase) return;
   const { error } = await supabase.auth.signOut();
   if (error) throw error;
@@ -166,8 +178,8 @@ export async function requestAccountDeletion(): Promise<{ remote: boolean }> {
 
   const { error } = await supabase.rpc('request_account_deletion');
   const remote = !error;
-  // Always sign out locally so the account is unusable on device.
-  await supabase.auth.signOut();
+  // Always clear Premium cache + sign out so the account is unusable on device.
+  await signOut();
   return { remote };
 }
 

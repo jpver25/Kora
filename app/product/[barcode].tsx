@@ -22,7 +22,7 @@ import {
   reportReview,
   voteReviewHelpful,
 } from '@/services/communityStore';
-import { alternativesLimit, getCachedEntitlements } from '@/services/entitlements';
+import { alternativesLimit, getEffectiveEntitlements } from '@/services/entitlements';
 import type { CosmeticReview } from '@/types/community';
 import type { Product } from '@/types/product';
 import { colors, radii, spacing, typography } from '@/theme';
@@ -84,15 +84,8 @@ export default function ProductScreen() {
           }
           setAltLoading(true);
           try {
-            const snap = await getCachedEntitlements();
-            const limit = alternativesLimit(
-              snap ?? {
-                tier: 'free',
-                isPremium: false,
-                source: 'none',
-                checkedAt: new Date().toISOString(),
-              },
-            );
+            const snap = await getEffectiveEntitlements();
+            const limit = alternativesLimit(snap);
             const [alts, revs] = await Promise.all([
               findHealthierAlternatives(found).catch(() => [] as Product[]),
               found.category === 'beauty'

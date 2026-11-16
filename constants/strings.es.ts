@@ -285,6 +285,8 @@ export const strings = {
     apple: 'Continuar con Apple',
     appleUnavailable: 'Iniciar sesión con Apple requiere iPhone (no disponible aquí).',
     loggedIn: 'Sesión iniciada',
+    confirmEmail:
+      'Cuenta creada. Revisa tu correo para confirmar antes de iniciar sesión (si la confirmación está activa).',
     migrated: 'Datos de invitado vinculados a tu cuenta.',
     logoutConfirm: '¿Cerrar sesión en este dispositivo?',
     deleteTitle: 'Eliminar cuenta',

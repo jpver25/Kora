@@ -22,6 +22,7 @@ import {
   reportReview,
   voteReviewHelpful,
 } from '@/services/communityStore';
+import { alternativesLimit, getCachedEntitlements } from '@/services/entitlements';
 import type { CosmeticReview } from '@/types/community';
 import type { Product } from '@/types/product';
 import { colors, radii, spacing, typography } from '@/theme';
@@ -60,12 +61,23 @@ export default function ProductScreen() {
           setWarnings(evaluateCompatibility(found, prefs));
           setAltLoading(true);
           try {
+            const snap = await getCachedEntitlements();
+            const limit = alternativesLimit(
+              snap ?? {
+                tier: 'free',
+                isPremium: false,
+                source: 'none',
+                checkedAt: new Date().toISOString(),
+              },
+            );
             const [alts, revs] = await Promise.all([
               findHealthierAlternatives(found),
               found.category === 'beauty' ? listCosmeticReviews(found.barcode) : Promise.resolve([]),
             ]);
             if (alive) {
-              setAlternatives(alts);
+              setAlternatives(
+                Number.isFinite(limit) ? alts.slice(0, Math.max(0, limit)) : alts,
+              );
               setReviews(revs);
             }
           } finally {

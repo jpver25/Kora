@@ -32,13 +32,23 @@ Abre **Expo Go** en el iPhone y escanea el QR.
 
 Detalle: [VISUAL_AI.md](./VISUAL_AI.md)
 
+### Cuentas y Premium (Phase 6)
+
+- Perfil → **Cuenta**: invitado, email Supabase, Sign in with Apple (iOS)  
+- Perfil → **Kora Premium**: límites free, ofertas RevenueCat  
+- **Expo Go:** auth + límites gratis ✅ · **compras IAP ❌** (usar Dev Client)  
+- Nunca se muestra Premium activo sin StoreKit/RevenueCat  
+
+Detalle: [docs/PREMIUM_AND_IAP.md](./docs/PREMIUM_AND_IAP.md) · checklist iPhone en [TESTING.md](./TESTING.md)
+
 ### ¿Cuándo hace falta EAS / Dev Client?
 
-Solo para ML Kit u otros módulos nativos custom.  
-**OCR cloud + barcode + pgvector funcionan en Expo Go.**
+- **Expo Go:** barcode, OCR cloud, auth email, límites free, comunidad local  
+- **Dev Client / EAS:** compras in-app (RevenueCat), Sign in with Apple fiable, módulos nativos  
 
 ```bash
 npx eas build --profile development --platform ios
+npx expo start --dev-client
 ```
 
 ## Tests
@@ -58,7 +68,8 @@ npm run test:visual          # fixtures OFF reales + medición honesta
 | [VISUAL_AI.md](./VISUAL_AI.md) | Pipeline visual, mediciones, Expo Go |
 | [IMPLEMENTATION_STATUS.md](./IMPLEMENTATION_STATUS.md) | Listo / blockers |
 | [TESTING.md](./TESTING.md) | Checklist dispositivo |
-| [DATABASE_SETUP.md](./DATABASE_SETUP.md) | Supabase + embeddings + comunidad (001–003) |
+| [DATABASE_SETUP.md](./DATABASE_SETUP.md) | Supabase SQL 001–004 |
+| [docs/PREMIUM_AND_IAP.md](./docs/PREMIUM_AND_IAP.md) | Free/Premium, Expo Go vs Dev Client |
 
 ## Estructura
 
@@ -66,7 +77,7 @@ npm run test:visual          # fixtures OFF reales + medición honesta
 app/                      Expo Router
 components/               UI + scanner
 services/vision/          Detection, OCR, embedding, search, ranking
-supabase/migrations/      001 schema + 002 visual embeddings
+supabase/migrations/      001–004 (schema, visual, community, accounts)
 supabase/functions/       visual-identify
 fixtures/packaging/       imágenes OFF reales + MEASURED_RESULTS.json
 ```

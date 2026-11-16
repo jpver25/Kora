@@ -65,6 +65,8 @@ export default function RootLayout() {
         <Stack.Screen name="comunidad/resena" options={{ headerShown: true, title: 'Reseña' }} />
         <Stack.Screen name="comunidad/marca" options={{ headerShown: true, title: 'Marca' }} />
         <Stack.Screen name="comunidad/actividad" options={{ headerShown: true, title: 'Aportes' }} />
+        <Stack.Screen name="cuenta" options={{ headerShown: true, title: 'Cuenta' }} />
+        <Stack.Screen name="premium" options={{ headerShown: true, title: 'Premium' }} />
       </Stack>
     </>
   );

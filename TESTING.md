@@ -34,6 +34,28 @@ npm run test:visual
 9. [ ] Sin OpenAI/Edge → mensaje `needsProvider`, **sin productos inventados**  
 10. [ ] Con visión configurada → candidatos reales OFF o auto-open  
 11. [ ] Picker `visual-candidates` abre ficha al elegir  
+12. [ ] Perfil → Cuenta: invitado; email sign-up/sign-in (Supabase Auth)  
+13. [ ] Tras login: historial/favoritos siguen; mensaje de migración  
+14. [ ] Exportar datos / cerrar sesión / solicitar borrado  
+15. [ ] Premium screen: estado **gratis**, aviso Expo Go (sin IAP), sin Premium falso  
+16. [ ] Tras ~12 escaneos gratis → alerta de límite + CTA Premium  
+
+## Checklist physical iPhone — Development Build (IAP / Apple)
+
+```bash
+npx eas build --profile development --platform ios
+npx expo start --dev-client
+```
+
+1. [ ] Instalar build en iPhone físico (no simulador para compras)  
+2. [ ] `.env` con `EXPO_PUBLIC_REVENUECAT_API_KEY` + Supabase  
+3. [ ] Sign in with Apple (capability + Supabase Apple provider)  
+4. [ ] Sandbox Apple ID → comprar / restaurar  
+5. [ ] Entitlement `kora_premium` activo → Perfil muestra Premium  
+6. [ ] Sin entitlement → permanece Free (nunca inventar)  
+7. [ ] Offline: historial/favoritos/cache; paquete Premium sin snapshot → mensaje honesto  
+
+Detalle: `docs/PREMIUM_AND_IAP.md`
 
 ## Fixtures visuales
 

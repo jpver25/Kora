@@ -1,6 +1,6 @@
 # Implementation status — Kora
 
-Última actualización: 2026-11-15 (Phase 5 community)
+Última actualización: 2026-11-16 (Phase 6 auth / Premium)
 
 ## Stack de PRs
 
@@ -9,39 +9,30 @@
 | 1–2 foundation/barcode | #1 | `cursor/phase1-foundation-87d8` |
 | 3 visual AI | #2 | `cursor/phase3-visual-ai-87d8` |
 | 4 consumer | #4 | `cursor/phase4-consumer-87d8` |
-| 5 community | (this PR) | `cursor/phase5-community-87d8` |
+| 5 community | #5 | `cursor/phase5-community-87d8` |
+| 6 accounts / Premium | (this PR) | `cursor/phase6-accounts-premium-87d8` |
 
-## Phase 5 listo (UI + flujos reales)
+## Phase 6
 
-| Ítem | Estado | Notas |
-| --- | --- | --- |
-| Agregar producto faltante (fotos, OCR confirm, draft/submit) | ✅ | `comunidad/contribuir` |
-| Ayuda a reconocer (desde visual fallido) | ✅ | CTA en alert de Escanear |
-| Correcciones de producto | ✅ | `comunidad/corregir` |
-| Reseñas cosméticas (estrellas, texto, útil, reportar) | ✅ | Separadas del puntaje Kora |
-| Estados de moderación | ✅ | draft → submitted → under_review → approved/rejected |
-| Solicitud a marca (rate limit 24h) | ✅ | `comunidad/marca` |
-| Cola local si falta schema | ✅ | AsyncStorage + mensaje honesto |
-| Migración `003_community.sql` | ✅ | **no aplicada aún** en el proyecto |
-
-## Supabase
-
-| Check | Estado |
-| --- | --- |
-| Proyecto `ssdnuypwutvdlpfkylva` auth | ✅ vivo (via `.env` local) |
-| Migraciones 001 / 002 / 003 en DB | ⛔ pendientes (SQL Editor) |
-| Features remotas de comunidad | ⛔ hasta aplicar 003 (app usa cola local) |
-
-**No afirmar** que inserts remotos / RLS / votes RPC funcionan hasta que el usuario aplique SQL.
-
-## Orden SQL
-
-1. `001_initial_schema.sql`  
-2. `002_visual_embeddings.sql`  
-3. `003_community.sql`
+| Ítem | Estado | Expo Go | Dev Client |
+| --- | --- | --- | --- |
+| Guest usage | ✅ | ✅ | ✅ |
+| Email auth (Supabase) | ✅ | ✅ | ✅ |
+| Sign in with Apple | ✅ código | ⚠️ limitado | ✅ |
+| Profile edit / logout | ✅ | ✅ | ✅ |
+| Account delete + export (Apple) | ✅ hooks | ✅ local | ✅ + RPC 004 |
+| Guest → account migration | ✅ | ✅ | ✅ |
+| Free scan limits + entitlements | ✅ | ✅ | ✅ |
+| RevenueCat / StoreKit purchases | ✅ path | ❌ | ✅ |
+| No fake Premium | ✅ | ✅ | ✅ |
+| Offline cache + Premium package design | ✅ | ✅ | ✅ |
+| Migración `004_accounts_premium.sql` | ✅ | — | aplicar en SQL |
 
 ## Blockers
 
-1. Schema vacío hasta SQL 001–003  
-2. Vision OpenAI/Edge opcional  
-3. Auth de usuarios reales (guest_key por ahora) — Fase 6
+1. SQL **001–004** aún no aplicados en el proyecto Supabase  
+2. Auth Apple: configurar provider + Services ID en Supabase + capability iOS  
+3. RevenueCat API key + App Store products + EAS Dev Client para IAP real  
+4. Paquete offline CDN/Storage aún no publicado (diseño + hooks listos; sin productos inventados)
+
+Ver `docs/PREMIUM_AND_IAP.md` y `TESTING.md` (sección iPhone físico).
